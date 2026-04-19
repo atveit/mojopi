@@ -1,10 +1,31 @@
 from std.python import Python
 from agent.types import ParsedToolCall
+from agent.hooks import run_before_hooks, run_after_hooks
 
 def dispatch_tool(name: String, arguments_json: String) raises -> String:
     """Dispatch a tool call by name. Returns the tool result as a string.
 
-    W2 scope: dispatches to Python helpers for the 7 tools.
+    Runs before/after hooks around the actual dispatch (best-effort).
+    """
+    # Run before hooks — may modify arguments_json
+    var actual_args = arguments_json
+    try:
+        actual_args = run_before_hooks(name, arguments_json)
+    except:
+        pass  # hooks are best-effort
+
+    var result = _dispatch_tool_impl(name, actual_args)
+
+    # Run after hooks — may modify result
+    try:
+        result = run_after_hooks(name, actual_args, result)
+    except:
+        pass  # hooks are best-effort
+
+    return result
+
+def _dispatch_tool_impl(name: String, arguments_json: String) raises -> String:
+    """Internal tool dispatch implementation. W2 scope: dispatches to Python helpers for the 7 tools.
     Unknown tool names return an error string.
     """
     var py_json = Python.import_module("json")

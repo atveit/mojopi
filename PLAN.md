@@ -304,37 +304,60 @@ Four parallel streams, ~5 agents:
 
 ---
 
-### Tier R — RUN: shippable to real users (weeks 11–16)
+### Walk → Run: learnings applied
+
+| Learning from Walk | How Run adapts |
+|---|---|
+| Python interop is permanent — MAX, tools, TUI all use Python. | R1 extension API is Python-native from the start. No Mojo trait wrappers needed. |
+| TUI deferred from W2. | TUI is now the first R1 item. No extension API ships without a working TUI. |
+| Hook system in place (W3 agent.hooks). | R1 extension API builds on hooks — no second event bus. |
+| MAX TextGenerationPipeline config bug blocks fully embedded pipeline. | R2 first task is to diagnose and fix this. Use subprocess fallback in the meantime. |
+| Mojo 0.26.2 correction surface is stable (14 entries in §0). | R tier agents inherit all §0 corrections in their prompts. No new corrections expected unless MAX bumps again. |
+| Tool dispatch is Python-heavy (thin Mojo wrappers over Python helpers). | Accept this. "Pure Mojo tools" is aspirational. |
+| Session v3 format maintained. TS pi compatibility met. | R3 ships with session v3 as the stable format. Schema evolution goes through RFC. |
+
+---
+
+### Tier R — RUN: shippable to real users (weeks 12–17)
 
 Run's goal: `mojopi` is something a pi-mono user installs and uses daily instead of `pi`.
 
-#### R1 — Run.Crawl: extensions + print polish + docs (weeks 11–12)
-**Goal:** users bring their own tools; `-p` mode is production-quality.
-- [ ] Python extension API: `register_tool`, `register_command`, `on(event)`. Discovery from `~/.pi/agent/extensions/` + `.pi/extensions/` + `--extension`.
+#### R1 — Run.Crawl: TUI + extensions + print polish + docs (weeks 12–14)
+**Goal:** interactive TUI works; users can bring their own tools; `-p` mode is production-quality.
+
+- [ ] **TUI (deferred from W2)**: Python `textual` shim. Input box + streaming pane + tool-call collapsible. Wired into the W3 steering queue for keyboard interrupt. Test: basic session renders in textual without hang.
+- [ ] Python extension API: `register_tool`, `register_command`, `on(event)`. Built on top of the W3 hooks framework (`agent.hooks`). Discovery from `~/.pi/agent/extensions/` + `.pi/extensions/` + `--extension`.
 - [ ] Event taxonomy parity with `extensions/types.ts`: `tool_call`, `message_start`, `message_end`, `before_agent_start`, `before_compact`, `custom_event`.
-- [ ] Custom tools: Python callables wrapped in a Mojo `AgentTool` adapter.
+- [ ] Custom tools: Python callables wrapped in a Mojo `AgentTool` adapter (the `AgentTool` struct already exists in `src/agent/types.mojo`).
 - [ ] Print mode (`-p`) hardening: stdin piping, `@file` arguments, exit codes, `--system-prompt` / `--append-system-prompt`.
 - [ ] Migration doc: TS extension → Python extension, side-by-side for 3 common examples.
 
+**Note:** The hooks framework (W3 `agent.hooks`) is the implementation substrate for the extension API. R1 adds the discovery + registration UX on top.
+
 **Gate:** a real pi-mono user ports one of their extensions and runs it against `mojopi -p` in < 30 min.
 
-#### R2 — Run.Walk: benchmarks + GPU path + perf hardening (weeks 13–14)
-**Goal:** hit NFR targets. Stop gaslighting ourselves.
-- [ ] Benchmark suite in CI: TTFT, throughput, RSS, cold start. Nightly on macOS M-series + Linux A10G.
-- [ ] Structured-output path: `--enable-structured-output` on GPU builds with JSON-Schema grammar for tool calls.
-- [ ] PagedKVCache tuning: measure fragmentation on 16k+ context workloads.
-- [ ] Python GIL hot-spot profiling: dedicated Python thread for MAX calls; keep Mojo event loop unblocked.
+#### R2 — Run.Walk: benchmarks + GPU path + perf hardening (weeks 14–15)
+**Goal:** hit NFR targets. Stop gaslighting ourselves about perf.
+
+- [ ] Benchmark suite in CI: TTFT, throughput, RSS, cold start. Nightly on macOS M-series.
+- [ ] Fix the `get_or_create_pipeline()` MAX config bug: the TextGenerationPipeline constructor rejects keyword args in some invocations — investigate the correct MAX Python API for 2026, update pipeline.py accordingly.
+- [ ] Structured-output path: `--enable-structured-output` on GPU builds with JSON-Schema grammar for tool calls. GPU-only; CPU fallback stays with regex + retry.
+- [ ] Python GIL profiling: identify hot spots in the MAX call path; consider a dedicated Python thread for MAX calls if GIL contention is measurable.
 - [ ] Fix anything > 20% off target.
 
-**Gate (NFRs):** TTFT < 150 ms (M1 Max) and < 200 ms (A10G); throughput > 30 tok/s (Llama-3.1-8B Q4_K_M); RSS < 100 MB excl. weights/KV; cold start < 50 ms excl. model load.
+**NFR targets (unchanged from §6):** TTFT < 150 ms (M1 Max), throughput > 30 tok/s (Llama-3.1-8B Q4_K_M), RSS < 100 MB excl. weights/KV, cold start < 50 ms excl. model load.
 
-#### R3 — Run.Run: distribution + JSON/RPC + v1.0 (weeks 15–16)
+**Realistic note:** at 15 tok/s on Apple Silicon CPU (MAX 26.2 with topk GPU block), the throughput target requires either MAX upstream fixes or Linux + CUDA. This is tracked as Risk R4 in §7. The Apple CPU path targets best-effort quality; NFR gating is Linux + CUDA CI.
+
+#### R3 — Run.Run: distribution + JSON/RPC + v1.0 (weeks 15–17)
 **Goal:** v1.0 shipped.
-- [ ] `pixi global install mojopi` from a public conda channel.
-- [ ] `--mode json` (streaming JSONL to stdout).
-- [ ] `--mode rpc` (JSONL-framed RPC over stdin/stdout for editor integration).
-- [ ] Parallel tool dispatch (read-only tools only).
+
+- [ ] `pixi global install mojopi` from a public conda channel (or pixi.sh global).
+- [ ] `--mode json` (streaming JSONL to stdout). Each token + tool call + final answer as a JSONL event.
+- [ ] `--mode rpc` (JSONL-framed RPC over stdin/stdout for editor integration — VS Code extension target).
+- [ ] Parallel tool dispatch (read-only tools only: read, grep, find, ls). Use Python `threading.Thread` pool (not Mojo async — Risk R2 in §7).
 - [ ] Release notes, install doc, `AGENTS.md` doc, extension API reference.
+- [ ] Mojo version pin: pin pixi.toml to a specific Mojo/MAX build for the v1.0 release. Log corrections §0 for that version. Run the full test suite against it before tagging.
 
 **Gate:** v1.0 tag cut. External user completes README quickstart on a clean machine without help.
 

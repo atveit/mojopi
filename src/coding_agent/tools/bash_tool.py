@@ -25,7 +25,27 @@ def run_bash(
     import signal
     import subprocess
 
+    # Check abort flag before starting any external process.
+    try:
+        from agent.abort import is_aborted
+        if is_aborted():
+            return {
+                "stdout": "",
+                "stderr": "[aborted before execution]",
+                "exit_code": -1,
+                "timed_out": False,
+                "truncated": False,
+            }
+    except ImportError:
+        pass  # abort module not yet available — proceed normally
+
     effective_timeout = timeout if timeout > 0 else None
+
+    # Import abort checker for mid-execution use; fall back to no-op if unavailable.
+    try:
+        from agent.abort import is_aborted as _is_aborted
+    except ImportError:
+        _is_aborted = lambda: False
 
     try:
         proc = subprocess.Popen(
@@ -36,6 +56,26 @@ def run_bash(
             stderr=subprocess.PIPE,
             preexec_fn=os.setsid,  # new process group → clean SIGTERM
         )
+        # Use a background thread to watch for abort while communicate() blocks.
+        import threading as _threading
+
+        _aborted_mid = False
+        _communicate_done = _threading.Event()
+
+        def _abort_watcher():
+            nonlocal _aborted_mid
+            while not _communicate_done.wait(timeout=0.05):
+                if _is_aborted():
+                    _aborted_mid = True
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                    except (ProcessLookupError, OSError):
+                        pass
+                    break
+
+        watcher = _threading.Thread(target=_abort_watcher, daemon=True)
+        watcher.start()
+
         try:
             stdout_bytes, stderr_bytes = proc.communicate(timeout=effective_timeout)
             timed_out = False
@@ -49,6 +89,20 @@ def run_bash(
             stdout_bytes, stderr_bytes = proc.communicate()
             timed_out = True
             exit_code = 124  # matches bash `timeout` convention
+        finally:
+            _communicate_done.set()
+            watcher.join(timeout=0.1)
+
+        if _aborted_mid:
+            stdout_str = stdout_bytes.decode("utf-8", errors="replace")
+            stderr_str = stderr_bytes.decode("utf-8", errors="replace")
+            return {
+                "stdout": stdout_str,
+                "stderr": stderr_str + "\n[aborted mid-execution]",
+                "exit_code": -1,
+                "timed_out": False,
+                "truncated": True,
+            }
     except Exception as exc:
         return {
             "stdout": "",

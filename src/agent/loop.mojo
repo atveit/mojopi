@@ -2,6 +2,8 @@ from std.collections import List
 from std.python import Python, PythonObject
 from agent.types import AgentContext, HistoryEntry, ParsedToolCall, AgentTool
 from agent.tool_executor import dispatch_tool
+from agent.steering import poll_steering, clear_steering
+from agent.abort import clear_abort, is_aborted, request_abort
 
 # Maximum tool call iterations per turn (prevents infinite loops).
 comptime MAX_TOOL_ITERATIONS = 10
@@ -100,6 +102,10 @@ def run_loop(
 
     Returns the final assistant response text.
     """
+    # W3: Clear abort flag and any stale steering messages from previous turn.
+    clear_abort()
+    clear_steering()
+
     var history = List[HistoryEntry]()
     history.append(HistoryEntry(String("user"), user_input))
 
@@ -107,8 +113,35 @@ def run_loop(
     while iteration < MAX_TOOL_ITERATIONS:
         iteration += 1
 
+        # W3: Check abort before generating.
+        if is_aborted():
+            return String("[aborted]")
+
+        # W3: Poll for steering messages (mid-turn user input).
+        var steering_msg = poll_steering()
+        if len(steering_msg) > 0:
+            # Inject steering message as a user turn
+            history.append(HistoryEntry(
+                String("user"),
+                String("[user] ") + steering_msg,
+            ))
+
         # Format as ChatML
         var prompt = format_history_as_chatml(context.system_prompt, history)
+
+        # W3: Simple context-size guard (approximate token count).
+        # If the formatted prompt exceeds ~6000 chars (~1500 tokens),
+        # trim the oldest middle turns to keep the model happy.
+        # Full compaction (with summarization) happens in a separate pass.
+        if len(prompt) > 24000:  # ~6000 tokens × 4 chars/token
+            # Keep system prompt + first user + last 4 turns
+            if len(history) > 6:
+                var trimmed = List[HistoryEntry]()
+                trimmed.append(history[0].copy())
+                for j in range(len(history) - 4, len(history)):
+                    trimmed.append(history[j].copy())
+                history = trimmed^
+                prompt = format_history_as_chatml(context.system_prompt, history)
 
         # Call MAX inference via Python
         var mod = Python.import_module("max_brain.pipeline")
@@ -138,6 +171,9 @@ def run_loop(
 
         # Execute each tool call and append results
         for i in range(len(tool_calls)):
+            # W3: Check abort before each tool call.
+            if is_aborted():
+                return String("[aborted during tool execution]")
             var tc = tool_calls[i]
             var result = dispatch_tool(tc.name, tc.arguments_json)
             history.append(HistoryEntry(
