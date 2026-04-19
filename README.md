@@ -27,15 +27,34 @@ and TUI land in the Walk phase; see [../PLAN.md](../PLAN.md) for the full
 # Resolve the Mojo 26.2 + MAX + Python 3.12 environment.
 pixi install
 
-# Run the test suite (Mojo tests, then pytest).
+# Run the test suite — 22 tests (4 formatter + 5 read + 10 types + 3 interop).
 pixi run test
 
-# C1 smoke gate: import max and print its version.
+# C1 smoke gate: Mojo→Python→MAX bridge prints a version string.
 pixi run smoke
 
-# One-shot prompt (works from C3 onward).
-pixi run run -- -p "hello"
+# C3 one-shot demo — first run downloads ~4.5GB of Llama-3.1-8B GGUF.
+pixi run bash scripts/run.sh -p "What is 2+2? Answer briefly."
+
+# Override the model / cap:
+pixi run bash scripts/run.sh -p "hi" --model meta-llama/Llama-3.2-1B-Instruct --max-new-tokens 40
 ```
+
+### Why `bash scripts/run.sh` and not `pixi run run -- …`?
+
+Pixi 0.67 does not forward trailing arguments to string tasks. The shim
+script sets `PYTHONPATH=src` and `mojo run -I src` so the Python interop
+module (`max_brain.pipeline`) and Mojo modules resolve, then forwards
+`"$@"` to the Mojo binary.
+
+### Apple Silicon notes
+
+MAX 26.2's sampling graph uses a `topk` kernel that requires an
+`external memory` feature Apple's Metal GPU does not expose. The
+generation path is pinned to `--devices cpu` in
+[`src/max_brain/pipeline.py`](src/max_brain/pipeline.py). Expect ~1–3 tok/s
+on an M-series CPU with Llama-3.1-8B Q4_K. GPU-accelerated generation is
+a MAX upstream concern; Linux + CUDA should work without the CPU pin.
 
 ## Project layout
 

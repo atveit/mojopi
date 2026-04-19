@@ -11,8 +11,8 @@ from max_brain.inference import get_max_version, run_one_shot
 # would be nice for smoke but the MAX 26.2 Apple-GPU topk constraint
 # means CPU is mandatory on arm64, and no smaller text model in the
 # supported-architectures list ships with CPU-compatible quant weights.
-alias DEFAULT_MODEL = "modularai/Llama-3.1-8B-Instruct-GGUF"
-alias DEFAULT_MAX_NEW_TOKENS = 64
+comptime DEFAULT_MODEL = "modularai/Llama-3.1-8B-Instruct-GGUF"
+comptime DEFAULT_MAX_NEW_TOKENS = 64
 
 
 def print_usage():
