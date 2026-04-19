@@ -14,23 +14,19 @@ def run_one_shot(
     prompt: String,
     model: String,
     max_new_tokens: Int = 64,
-) raises:
+) raises -> Int:
     """C3 one-shot driver: stream `max generate` stdout to stdout.
 
-    Calls max_brain.pipeline.stream_tokens, which shells out to the bundled
-    MAX CLI. Each yielded chunk is a line of subprocess stdout (MAX logs
-    and generated text mixed). We write through Python's sys.stdout so
-    each chunk flushes immediately, giving the user the token-by-line
-    streaming feel the C3 gate calls for.
+    Delegates the subprocess iteration to Python (max_brain.pipeline.
+    run_one_shot). Keeping the loop in Python sidesteps an early
+    truncation seen when Mojo iterates a Python generator over this
+    specific stream — probably related to the tqdm progress lines the
+    MAX CLI emits mid-download. One call, full output.
     """
     var mod = Python.import_module("max_brain.pipeline")
-    var sys_mod = Python.import_module("sys")
-    var gen = mod.stream_tokens(prompt, model, max_new_tokens)
-    for chunk in gen:
-        # `chunk` already ends in \n from the subprocess. Using
-        # sys.stdout.write avoids print's extra newline + gives us flush.
-        _ = sys_mod.stdout.write(chunk)
-        _ = sys_mod.stdout.flush()
+    var rc = mod.run_one_shot(prompt, model, max_new_tokens)
+    # Int(py=...) is the current-Mojo form for PythonObject → Int.
+    return Int(py=rc)
 
 
 struct MaxInference(Movable):

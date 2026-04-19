@@ -67,6 +67,21 @@ def build_pipeline(model_repo: str, max_length: int = 8192) -> dict[str, Any]:
     }
 
 
+def _build_max_generate_cmd(model: str, prompt: str, max_new_tokens: int) -> list[str]:
+    """Shared command builder. MAX 26.2 topk kernel hits an
+    "external memory not supported on Apple GPU" constraint during
+    sampling graph compile. Forcing CPU avoids that. On Linux + CUDA,
+    remove --devices cpu (R2 will auto-detect).
+    """
+    return [
+        "max", "generate",
+        "--model-path", model,
+        "--prompt", prompt,
+        "--max-new-tokens", str(max_new_tokens),
+        "--devices", "cpu",
+    ]
+
+
 def stream_tokens(
     prompt: str,
     model: str = "modularai/Llama-3.1-8B-Instruct-GGUF",
@@ -74,34 +89,21 @@ def stream_tokens(
 ):
     """Yield stdout chunks from `max generate` as they arrive.
 
-    C3 one-shot path: shells out to the bundled `max` CLI which handles
-    model download/load/compile/generate/teardown per invocation. Slow
-    (graph compile every call) but the simplest path that actually works
-    in MAX 26.2. Interactive use (W2) will move to an embedded
-    TextGenerationPipeline that amortizes load across turns.
-
-    The `max` CLI logs are mixed into stdout; the Mojo caller is
-    responsible for filtering or displaying as-is. C3's demo gate accepts
-    log-adjacent output.
+    A generator is the right shape for downstream iteration in Python,
+    but Mojo's PythonObject iteration truncates early on this stream
+    (see run_one_shot() for the fix). Python-side callers can still
+    use this directly if they want chunk-level control.
     """
     import subprocess
 
-    # MAX 26.2 topk kernel hits an "external memory not supported on Apple GPU"
-    # constraint during sampling graph compile. Forcing CPU avoids that. On
-    # Linux + CUDA, remove `--devices cpu` (R2 will auto-detect).
-    cmd = [
-        "max", "generate",
-        "--model-path", model,
-        "--prompt", prompt,
-        "--max-new-tokens", str(max_new_tokens),
-        "--devices", "cpu",
-    ]
     proc = subprocess.Popen(
-        cmd,
+        _build_max_generate_cmd(model, prompt, max_new_tokens),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         bufsize=1,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     try:
         assert proc.stdout is not None
@@ -111,3 +113,41 @@ def stream_tokens(
         rc = proc.wait()
         if rc != 0:
             yield f"\n[max generate exited with code {rc}]\n"
+
+
+def run_one_shot(
+    prompt: str,
+    model: str = "modularai/Llama-3.1-8B-Instruct-GGUF",
+    max_new_tokens: int = 64,
+) -> int:
+    """Run `max generate` once and stream its output to stdout, returning
+    the subprocess exit code.
+
+    This is the Mojo-facing entrypoint. Keeping the iteration in Python
+    sidesteps a PythonObject-iteration truncation the Mojo side hits when
+    looping a generator directly — the Mojo caller just awaits this single
+    call and the full output lands on stdout as the subprocess produces it.
+    """
+    import subprocess
+    import sys
+
+    proc = subprocess.Popen(
+        _build_max_generate_cmd(model, prompt, max_new_tokens),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()
+    finally:
+        rc = proc.wait()
+    if rc != 0:
+        sys.stdout.write(f"\n[max generate exited with code {rc}]\n")
+        sys.stdout.flush()
+    return rc

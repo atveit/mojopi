@@ -7,4 +7,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-PYTHONPATH="src:${PYTHONPATH:-}" exec mojo run -I src src/main.mojo -- "$@"
+# PYTHONIOENCODING=utf-8 so Python sys.stdout doesn't choke on the tqdm
+# progress bars (█ = U+2588) MAX's CLI emits during download.
+PYTHONPATH="src:${PYTHONPATH:-}" \
+PYTHONIOENCODING=utf-8 \
+exec mojo run -I src src/main.mojo -- "$@"

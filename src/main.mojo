@@ -82,4 +82,6 @@ def main() raises:
     # respond. W2 introduces per-model prompt formatting.
     var formatted = format_llama3_single_turn(user_prompt)
 
-    run_one_shot(formatted, model, max_new)
+    var rc = run_one_shot(formatted, model, max_new)
+    if rc != 0:
+        print("(max generate exited with code", rc, ")")
