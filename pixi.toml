@@ -15,10 +15,11 @@ python = "3.12.*"
 pytest = "*"
 
 [tasks]
-# Full test suite: Mojo tests first, then Python tests.
-test = "mojo test tests/ && pytest tests/"
-test-mojo = "mojo test tests/"
-test-python = "pytest tests/ -v"
+# Full test suite — delegates to scripts/test.sh so all path/env plumbing
+# lives in one place (PYTHONPATH, mojo -I src).
+test = "bash scripts/test.sh"
+test-mojo = "bash -c 'PYTHONPATH=src mojo test -I src tests/'"
+test-python = "bash -c 'PYTHONPATH=src pytest tests/ -v'"
 
 # Formatting.
 format = "mojo format src/ tests/"
