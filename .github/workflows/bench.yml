@@ -1,0 +1,34 @@
+name: Nightly Benchmark
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 2 AM UTC daily
+  workflow_dispatch:      # manual trigger
+
+jobs:
+  bench:
+    runs-on: macos-14     # Apple M1 runner
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pixi
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          pixi-version: latest
+
+      - name: Run benchmark dry-run (no model)
+        working-directory: mojopi
+        run: |
+          pixi run python scripts/bench.py --dry-run --json
+
+      - name: Run benchmark fast tests
+        working-directory: mojopi
+        run: |
+          pixi run bash -c "PYTHONPATH=src pytest tests/test_benchmarks.py -v -m 'not slow'"
+
+      # Full benchmark requires model weights — disabled until weights are available in CI
+      # - name: Run full benchmark
+      #   working-directory: mojopi
+      #   run: pixi run python scripts/bench.py --tokens 64 --runs 3 --json

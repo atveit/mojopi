@@ -17,16 +17,22 @@ _pipeline_cache: dict = {}
 def _make_pipeline_config(model_repo: str, max_length: int) -> Any:
     """Build a PipelineConfig, pinning to CPU on Apple Silicon.
 
-    On Apple Silicon (arm64), the MAX 26.2 topk sampling kernel hits an
-    'external memory not supported on Apple GPU' constraint. Forcing CPU
-    avoids that. On Linux + CUDA the devices kwarg is omitted so MAX
-    auto-detects the accelerator.
+    MAX 26.2+ changed the API: `model` must be an MAXModelConfig object
+    (not a string), and CPU pinning uses DeviceSpec.cpu() in device_specs.
+    On Linux + CUDA, device_specs is left empty for auto-detection.
     """
     from max.pipelines import PipelineConfig
+    from max.pipelines.lib.config.model_config import MAXModelConfig
     if _is_arm64:
-        return PipelineConfig(model=model_repo, max_length=max_length, devices="cpu")
+        from max.driver import DeviceSpec
+        model_cfg = MAXModelConfig(
+            model_path=model_repo,
+            max_length=max_length,
+            device_specs=[DeviceSpec.cpu()],
+        )
     else:
-        return PipelineConfig(model=model_repo, max_length=max_length)
+        model_cfg = MAXModelConfig(model_path=model_repo, max_length=max_length)
+    return PipelineConfig(model=model_cfg)
 
 
 def get_or_create_pipeline(
@@ -158,8 +164,8 @@ def build_pipeline(model_repo: str, max_length: int = 8192) -> dict[str, Any]:
     it does not yet execute generation. Returns a dict describing the config
     so the Mojo side can log/inspect it without depending on MAX internals.
     """
-    from max.pipelines import PipelineConfig, TextGenerationPipeline  # lazy
-    cfg = PipelineConfig(model=model_repo, max_length=max_length)
+    from max.pipelines import TextGenerationPipeline  # lazy
+    cfg = _make_pipeline_config(model_repo, max_length)
     pipeline = TextGenerationPipeline(cfg)
     return {
         "model": model_repo,

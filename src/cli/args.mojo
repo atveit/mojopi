@@ -33,6 +33,9 @@ struct CliArgs(Copyable, Movable):
     var tools: List[String]     # --tools tool1,tool2 (empty = all tools)
     var no_tools: Bool          # --no-tools
 
+    # Structured output
+    var enable_structured_output: Bool  # --enable-structured-output (GPU only)
+
     # Debug
     var verbose: Bool           # --verbose / -v
 
@@ -47,6 +50,7 @@ struct CliArgs(Copyable, Movable):
         self.append_system_prompt = String("")
         self.tools = List[String]()
         self.no_tools = False
+        self.enable_structured_output = False
         self.verbose = False
 
 
@@ -166,6 +170,10 @@ def parse_args(raw_args: List[String]) raises -> ParseResult:
 
         elif flag == String("--no-tools"):
             result.no_tools = True
+            i += 1
+
+        elif flag == String("--enable-structured-output"):
+            result.enable_structured_output = True
             i += 1
 
         elif flag == String("--verbose") or flag == String("-v"):
