@@ -1,9 +1,9 @@
 # Mojo-side wrapper around max_brain/pipeline.py.
-# MAX is Python-first; we go through `from python import Python`.
-from python import Python, PythonObject
+# MAX is Python-first; we go through `from std.python import Python`.
+from std.python import Python, PythonObject
 
 
-def get_max_version() -> String:
+def get_max_version() raises -> String:
     """C1 smoke gate: prove Python interop reaches MAX (or reports it's absent)."""
     var mod = Python.import_module("max_brain.pipeline")
     var v = mod.get_max_version()
@@ -14,11 +14,11 @@ struct MaxInference(Movable):
     var _config: PythonObject    # the dict returned by build_pipeline
     var model_repo: String
 
-    def __init__(out self, model_repo: String):
+    def __init__(out self, model_repo: String) raises:
         self.model_repo = model_repo
         var mod = Python.import_module("max_brain.pipeline")
         self._config = mod.build_pipeline(model_repo)
 
-    def describe(self) -> String:
+    def describe(self) raises -> String:
         """Return a short human-readable summary of the loaded pipeline."""
         return String(self._config)

@@ -7,8 +7,8 @@
 # render helpers, tool-definition wrapping / schema binding, tab replacement,
 # syntax highlighting, `firstLineExceedsLimit` bash-fallback text.
 
-from collections import List
-from pathlib import Path
+from std.collections import List
+from std.pathlib import Path
 
 
 struct ReadResult(Copyable, Movable):
@@ -35,7 +35,7 @@ def read_text(
     offset: Int = 1,
     limit: Int = 100,
     max_bytes: Int = 10000,
-) -> ReadResult:
+) raises -> ReadResult:
     """Read a text file with 1-indexed line offset and line limit.
 
     - `offset`: 1-indexed starting line (default 1 = file start).

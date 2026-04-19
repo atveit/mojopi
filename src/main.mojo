@@ -2,7 +2,7 @@
 # tokens from MAX back to stdout. No tools, no session, no agent loop -- those
 # arrive in Walk phases (see PLAN.md section 4).
 
-from sys import argv
+from std.sys import argv
 from prompt.formatter import format_llama3_single_turn
 from max_brain.inference import MaxInference, get_max_version
 
@@ -19,7 +19,7 @@ def print_usage():
     print("    -p, --print  print mode -- required for crawl; emits tokens to stdout")
 
 
-def main():
+def main() raises:
     var args = argv()
     # argv()[0] is the program name; skip it.
     if len(args) < 2:
@@ -38,7 +38,8 @@ def main():
         return
 
     if len(args) < 3:
-        print("error: -p requires a prompt argument", file=2)
+        # Mojo's print() has no `file=` kwarg; stderr routing is a W-phase concern.
+        print("error: -p requires a prompt argument")
         print_usage()
         return
 

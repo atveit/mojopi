@@ -1,4 +1,4 @@
-from collections import List
+from std.collections import List
 
 
 # Ports pi-mono/packages/ai/src/types.ts TextContent { type: "text"; text: string }.
