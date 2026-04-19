@@ -1,0 +1,4 @@
+{"type": "session", "v": 3, "id": "sess-branch", "parentId": null, "cwd": "/projects/bar", "timestamp": 1713600000}
+{"type": "message", "id": "msg-a", "parentId": "sess-branch", "message": {"role": "user", "content": [{"type": "text", "text": "Initial question"}]}}
+{"type": "message", "id": "msg-b", "parentId": "msg-a", "message": {"role": "assistant", "content": [{"type": "text", "text": "Answer A"}]}}
+{"type": "message", "id": "msg-c", "parentId": "msg-a", "message": {"role": "assistant", "content": [{"type": "text", "text": "Answer B (fork)"}]}}

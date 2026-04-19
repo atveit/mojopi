@@ -6,6 +6,107 @@ Mojo side imports via `from python import Python`.
 """
 from __future__ import annotations
 from typing import Any
+import platform
+
+_is_arm64 = platform.machine() == "arm64"
+
+# Module-level pipeline cache: model_repo -> TextGenerationPipeline instance
+_pipeline_cache: dict = {}
+
+
+def _make_pipeline_config(model_repo: str, max_length: int) -> Any:
+    """Build a PipelineConfig, pinning to CPU on Apple Silicon.
+
+    On Apple Silicon (arm64), the MAX 26.2 topk sampling kernel hits an
+    'external memory not supported on Apple GPU' constraint. Forcing CPU
+    avoids that. On Linux + CUDA the devices kwarg is omitted so MAX
+    auto-detects the accelerator.
+    """
+    from max.pipelines import PipelineConfig
+    if _is_arm64:
+        return PipelineConfig(model=model_repo, max_length=max_length, devices="cpu")
+    else:
+        return PipelineConfig(model=model_repo, max_length=max_length)
+
+
+def get_or_create_pipeline(
+    model_repo: str = "modularai/Llama-3.1-8B-Instruct-GGUF",
+    max_length: int = 8192,
+) -> object:
+    """Load TextGenerationPipeline once; cache by model_repo.
+
+    IMPORTANT: On Apple Silicon (arm64), GPU sampling is broken in MAX 26.2
+    due to a topk kernel 'external memory' constraint. Must use CPU.
+    Set devices='cpu' in PipelineConfig on arm64.
+
+    Returns the cached pipeline instance. Raises on import or init failure
+    so callers can fall back gracefully.
+    """
+    if model_repo in _pipeline_cache:
+        return _pipeline_cache[model_repo]
+
+    from max.pipelines import TextGenerationPipeline
+    cfg = _make_pipeline_config(model_repo, max_length)
+    pipeline = TextGenerationPipeline(cfg)
+
+    available = [m for m in dir(pipeline) if not m.startswith('_')]
+    print(f"[pipeline] methods: {available}")
+
+    _pipeline_cache[model_repo] = pipeline
+    return pipeline
+
+
+def generate_embedded(
+    prompt: str,
+    model_repo: str = "modularai/Llama-3.1-8B-Instruct-GGUF",
+    max_new_tokens: int = 64,
+) -> str:
+    """Generate text using the cached pipeline (no subprocess).
+
+    Drives iteration in Python (do NOT iterate a Python generator from Mojo —
+    it truncates early around chunk 16). Returns the generated text as a string.
+
+    Falls back to run_one_shot() if the embedded pipeline raises.
+    """
+    try:
+        pipeline = get_or_create_pipeline(model_repo)
+    except Exception as exc:
+        print(f"[pipeline] get_or_create_pipeline failed ({exc}); falling back to subprocess")
+        run_one_shot(prompt, model_repo, max_new_tokens)
+        return ""
+
+    # Try API patterns in order of likelihood for MAX 26.2 / max-pipelines.
+    # Pattern 1: streaming next() API
+    if hasattr(pipeline, "next"):
+        try:
+            tokens: list[str] = []
+            for token in pipeline.next(prompt):
+                tokens.append(str(token))
+            return "".join(tokens)
+        except Exception as exc:
+            print(f"[pipeline] pipeline.next() failed ({exc}); trying next pattern")
+
+    # Pattern 2: batch generate() API
+    if hasattr(pipeline, "generate"):
+        try:
+            result = pipeline.generate(prompt, max_new_tokens=max_new_tokens)
+            return str(result)
+        except Exception as exc:
+            print(f"[pipeline] pipeline.generate() failed ({exc}); trying next pattern")
+
+    # Pattern 3: callable API
+    try:
+        tokens: list[str] = []
+        for token in pipeline(prompt):
+            tokens.append(str(token))
+        return "".join(tokens)
+    except Exception as exc:
+        print(f"[pipeline] pipeline(...) callable failed ({exc}); falling back to subprocess")
+
+    # Final fallback: subprocess
+    print("[pipeline] all embedded API patterns failed; falling back to run_one_shot()")
+    run_one_shot(prompt, model_repo, max_new_tokens)
+    return ""
 
 
 def get_max_version() -> str:

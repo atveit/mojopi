@@ -29,6 +29,21 @@ def run_one_shot(
     return Int(py=rc)
 
 
+def generate_embedded(
+    prompt: String,
+    model: String = "modularai/Llama-3.1-8B-Instruct-GGUF",
+    max_new_tokens: Int = 64,
+) raises -> String:
+    """W1 embedded pipeline: generate text without spawning a subprocess.
+
+    Calls Python generate_embedded() which manages the pipeline cache.
+    Falls back to run_one_shot() on error (Python-side fallback).
+    """
+    var mod = Python.import_module("max_brain.pipeline")
+    var result = mod.generate_embedded(prompt, model, max_new_tokens)
+    return String(result)
+
+
 struct MaxInference(Movable):
     """Kept for API continuity with earlier C2 scaffolding. The actual
     C3 demo driver is `run_one_shot()` above; a full embedded pipeline

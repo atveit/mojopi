@@ -1,0 +1,9 @@
+{"type": "session", "v": 3, "id": "sess-full", "parentId": null, "cwd": "/projects/foo", "timestamp": 1713600000}
+{"type": "message", "id": "msg-1", "parentId": "sess-full", "message": {"role": "user", "content": [{"type": "text", "text": "What files are here?"}]}}
+{"type": "message", "id": "msg-2", "parentId": "msg-1", "message": {"role": "assistant", "content": [{"type": "text", "text": "<tool_call>{\"name\": \"ls\", \"arguments\": {\"path\": \".\"}}</tool_call>"}]}}
+{"type": "thinking_level_change", "id": "tlc-1", "parentId": "msg-2", "level": "normal"}
+{"type": "model_change", "id": "mc-1", "parentId": "tlc-1", "model": "meta-llama/Llama-3.2-1B"}
+{"type": "compaction", "id": "comp-1", "parentId": "mc-1", "summary": "User asked about files. Agent used ls tool.", "token_count": 512}
+{"type": "branch_summary", "id": "bs-1", "parentId": "comp-1", "label": "file exploration branch"}
+{"type": "custom", "id": "custom-1", "parentId": "bs-1", "data": {"key": "value", "nested": {"x": 1}}}
+{"type": "custom_message", "id": "cm-1", "parentId": "custom-1", "message": {"injected": true, "content": "System note: context compacted."}}
