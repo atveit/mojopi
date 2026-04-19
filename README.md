@@ -9,9 +9,10 @@ inference.
 
 ## Status
 
-🚧 **Crawl phase** — scaffolding and smoke tests only. The agent loop, tools,
-and TUI land in the Walk phase; see [../PLAN.md](../PLAN.md) for the full
-9-phase roadmap (C1 → R3) and weekly milestones.
+🏁 **Crawl tier closed (2026-04-19)** — first generation end-to-end,
+22/22 tests green. See [STATUS.md](STATUS.md) for the TLDR and
+[PLAN.md](PLAN.md) for the full 9-phase roadmap. Agent loop, tools,
+and TUI land in the Walk tier next.
 
 ## Prerequisites
 
@@ -80,7 +81,7 @@ mojopi/
 
 Domains above mirror the [pi-mono](https://github.com/badlogic/pi-mono) package
 split (`ai` → `agent` → `coding-agent`) with `max_brain/` added for the MAX
-pipeline glue. See [../PLAN.md](../PLAN.md) for the full 9-phase roadmap.
+pipeline glue. See [PLAN.md](PLAN.md) for the full 9-phase roadmap.
 
 ## Credits
 
