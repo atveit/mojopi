@@ -67,10 +67,47 @@ def build_pipeline(model_repo: str, max_length: int = 8192) -> dict[str, Any]:
     }
 
 
-def stream_tokens(pipeline_handle: Any, prompt: str):
-    """Yield decoded token strings from a pipeline. Stub for C3.
+def stream_tokens(
+    prompt: str,
+    model: str = "modularai/Llama-3.1-8B-Instruct-GGUF",
+    max_new_tokens: int = 64,
+):
+    """Yield stdout chunks from `max generate` as they arrive.
 
-    C3 requires streaming tokens back to the Mojo caller. This function is
-    the lowest-level bridge. Implemented in C3 once build_pipeline is solid.
+    C3 one-shot path: shells out to the bundled `max` CLI which handles
+    model download/load/compile/generate/teardown per invocation. Slow
+    (graph compile every call) but the simplest path that actually works
+    in MAX 26.2. Interactive use (W2) will move to an embedded
+    TextGenerationPipeline that amortizes load across turns.
+
+    The `max` CLI logs are mixed into stdout; the Mojo caller is
+    responsible for filtering or displaying as-is. C3's demo gate accepts
+    log-adjacent output.
     """
-    raise NotImplementedError("streaming is a C3 deliverable")
+    import subprocess
+
+    # MAX 26.2 topk kernel hits an "external memory not supported on Apple GPU"
+    # constraint during sampling graph compile. Forcing CPU avoids that. On
+    # Linux + CUDA, remove `--devices cpu` (R2 will auto-detect).
+    cmd = [
+        "max", "generate",
+        "--model-path", model,
+        "--prompt", prompt,
+        "--max-new-tokens", str(max_new_tokens),
+        "--devices", "cpu",
+    ]
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
+        text=True,
+    )
+    try:
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            yield line
+    finally:
+        rc = proc.wait()
+        if rc != 0:
+            yield f"\n[max generate exited with code {rc}]\n"

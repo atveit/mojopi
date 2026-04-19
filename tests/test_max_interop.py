@@ -24,13 +24,14 @@ def test_get_max_version_is_callable():
     assert len(v) > 0
 
 
-def test_stream_tokens_not_implemented_in_c2():
+def test_stream_tokens_is_a_generator():
+    """C3 landing — stream_tokens is implemented as a subprocess-backed
+    generator over `max generate` stdout. This test doesn't invoke MAX;
+    it only verifies the public surface (iterable, accepts the 3 args)."""
+    import inspect
     import max_brain.pipeline as p
-    try:
-        next(iter(p.stream_tokens(None, "hi")))
-    except NotImplementedError:
-        return
-    except Exception:
-        # Any other path is fine — the strict contract is only that C2 doesn't promise streaming.
-        return
-    assert False, "stream_tokens should be unimplemented in C2"
+    assert inspect.isgeneratorfunction(p.stream_tokens)
+    sig = inspect.signature(p.stream_tokens)
+    assert "prompt" in sig.parameters
+    assert "model" in sig.parameters
+    assert "max_new_tokens" in sig.parameters

@@ -11,6 +11,9 @@ platforms = ["osx-arm64", "linux-64"]
 [dependencies]
 # Mojo SDK / MAX engine — pinned to the 26.2 series per PLAN.md §4 C1.
 max = "26.2.*"
+# Python pipeline layer (TextGenerationPipeline, tokenizers, GGUF loader)
+# lives in a separate package and pulls pydantic/transformers/click/av/etc.
+max-pipelines = "*"
 python = "3.12.*"
 pytest = "*"
 
@@ -25,8 +28,9 @@ test-python = "bash -c 'PYTHONPATH=src pytest tests/ -v'"
 format = "mojo format src/ tests/"
 format-check = "bash scripts/format-check.sh"
 
-# Run the binary.
-run = "mojo run src/main.mojo"
+# Run the binary. scripts/run.sh sets PYTHONPATH and -I src for Mojo
+# and Python module resolution. Usage: `pixi run run -- -p "hello"`.
+run = "bash scripts/run.sh"
 
 # C1 smoke gate: exercise the Mojo→Python→MAX bridge end-to-end.
 # Delegates to scripts/smoke.sh, which invokes the Mojo smoke driver; the
