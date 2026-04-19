@@ -164,12 +164,12 @@ Naming: `Cx` = Crawl tier, `Wx` = Walk tier, `Rx` = Run tier.
 | C | C1 | Crawl.Crawl | 1 | Scaffolding: Mojo + MAX + Python interop build green |
 | C | C2 | Crawl.Walk | 2 | Three independent slices: types, one tool, MAX load |
 | C | C3 | Crawl.Run | 3–4 | One-shot: `mojopi -p "hello"` streams tokens to stdout |
-| W | W1 | Walk.Crawl | 5–6 | Session store + context loader; read existing `.jsonl` losslessly |
-| W | W2 | Walk.Walk | 6–8 | All 7 tools + ReAct loop + interactive TUI |
-| W | W3 | Walk.Run | 9–10 | Compaction, steering, skills — long sessions survive |
-| R | R1 | Run.Crawl | 11–12 | Python extension API + print-mode polish + migration doc |
-| R | R2 | Run.Walk | 13–14 | Hit NFR targets (TTFT/throughput/RSS); GPU structured output |
-| R | R3 | Run.Run | 15–16 | Distribution + JSON/RPC modes + v1.0 release |
+| W | W1 | Walk.Crawl | 5–7 | Session store + context loader + **embedded MAX pipeline** |
+| W | W2 | Walk.Walk | 7–9 | 7 tools + ReAct loop + CLI (TUI non-blocking) |
+| W | W3 | Walk.Run | 9–11 | Compaction + steering + skills — long sessions survive |
+| R | R1 | Run.Crawl | 12–13 | Python extension API + print-mode polish + migration doc |
+| R | R2 | Run.Walk | 14–15 | Hit NFR targets (TTFT/throughput/RSS); GPU structured output |
+| R | R3 | Run.Run | 16–17 | Distribution + JSON/RPC modes + v1.0 release |
 
 ---
 
@@ -204,43 +204,103 @@ Crawl proves one thing: Mojo + MAX + Python interop + pi-mono's data model coexi
 
 ---
 
-### Tier W — WALK: behavioral parity with TS `pi` (weeks 5–10)
+### Crawl → Walk: learnings applied
 
-Walk's goal: a user with an existing `~/.pi/agent/sessions/` directory opens sessions in `mojopi`, has a conversation that *works* — same tools, same AGENTS.md handling, same session tree. Not fast yet, not pretty yet.
+Before executing Walk, here's what Crawl taught us and how it reshapes the plan:
 
-#### W1 — Walk.Crawl: session store + context loading (weeks 5–6)
-**Goal:** persistence works; existing pi sessions readable without loss.
-- [ ] JSONL reader/writer for all 7 session entry types (schema v3, §3).
-- [ ] Session tree builder: `get_leaf_branches()`, `resolve_path(leaf_id)`, fork + label.
-- [ ] Context loader: walk cwd→root for `AGENTS.md`/`CLAUDE.md`; `.pi/SYSTEM.md`, `.pi/APPEND_SYSTEM.md`; global `~/.pi/agent/AGENTS.md`; `--no-context-files` toggle.
-- [ ] `--session <uuid-prefix|path>` resolver — port of `main.ts:147-180`.
+| Learning from Crawl | How Walk adapts |
+|---|---|
+| Mojo API churn is real: 14 empirical corrections logged in §0 (`std.*` prefix, explicit `raises`, `.copy()` on def params, `Int(py=…)`, `alias→comptime`, etc.). | Every Walk agent prompt explicitly references §0 corrections. Budget 20% of each phase for newly-discovered churn. |
+| **`max generate` subprocess is ~11 s startup + graph compile per call.** Unusable for interactive iteration. | **Embedded `TextGenerationPipeline` is now a W1 deliverable** (moved up from W2). Load model once, drive many turns. Every subsequent phase assumes fast inference. |
+| Mojo iterating a Python generator (`for x in gen`) truncates early around the 16th chunk (tqdm `\r` interaction). | **Banned pattern.** Token streaming keeps the iteration loop in Python; Mojo calls a single Python function that handles the whole drive. See `pipeline.run_one_shot` for the template. |
+| Apple Metal GPU blocked by MAX 26.2 topk kernel constraint. | On arm64, pin `--devices cpu` and accept ~15 tok/s throughput. Perf targets (TTFT <150 ms, >30 tok/s) remain an R2 concern, gated on MAX upstream fixes or Linux+CUDA CI. |
+| Mojo `def` params are immutable refs — `^` transfer fails, must use `.copy()`. | W1 session structs (7 entry types × many fields) inherit this discipline. Agent prompts call it out explicitly. |
+| pixi 0.67 does not forward trailing args to string tasks. | All CLI flows go through `bash scripts/<name>.sh` wrappers. No more `pixi run foo -- --flag` patterns. |
+| 6-agent parallelism worked cleanly with file-ownership boundaries. | Walk continues with 3–6 agent parallel dispatches per phase, same hand-off protocol (§5). |
+| Empirical correction surface is deeper than docs. | Every phase ends with a "PLAN §0 delta" note — we keep logging corrections so future agents start with current truth. |
 
-**Gate:** 100% round-trip parity on ≥50 real pi-mono session files. TS `pi` opens `mojopi`-written sessions without error.
+---
 
-#### W2 — Walk.Walk: all 7 tools + ReAct loop + TUI (weeks 6–8)
-**Goal:** core agent works interactively on a real task.
-- [ ] All 7 tools ported with byte-for-byte TS parity on ≥200 golden fixtures: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls` (see C2 for `read`'s pattern).
-- [ ] Python shim isolation: any tool using Python (Pillow, diff_match_patch) lives behind a Mojo trait so it's swappable to native later.
-- [ ] `AgentLoop.run_loop()` — port of `agent-loop.ts:155-232`.
-- [ ] `stream_assistant_response()` — port of `agent-loop.ts:238-331`.
-- [ ] Sequential tool dispatch only (parallel deferred to R3).
-- [ ] Tool-call extraction: regex stream scan for `<tool_call>…</tool_call>`.
-- [ ] Retry-on-malformed loop: max 3 attempts with error-injection.
-- [ ] Interactive mode: Python `textual` shim — input box, streaming pane, tool-call collapsible, status bar.
-- [ ] Argument parser — port of `cli/args.ts`; system-prompt builder — port of `system-prompt.ts:28-80`.
+### Tier W — WALK: behavioral parity with TS `pi` (weeks 5–11)
 
-**Gate:** 20-turn scripted session ("analyze repo, propose refactor") completes without divergence from TS reference on deterministic inputs.
+Walk's goal: a user with an existing `~/.pi/agent/sessions/` directory opens sessions in `mojopi`, has a conversation that *works* — same tools, same AGENTS.md handling, same session tree. Not fast yet, not pretty yet. Timeline slipped by ~1 week vs. the original plan to absorb the embedded-pipeline work now inside W1.
 
-#### W3 — Walk.Run: compaction, steering, skills (weeks 9–10)
-**Goal:** long sessions survive.
-- [ ] Context compaction: trigger at 75% window; summarize oldest N tool-call/result pairs via secondary MAX call; write `CompactionEntry` preserving branching.
-- [ ] Steering messages: mid-turn interrupts via background single-producer/single-consumer queue (polled at `agent-loop.ts:165`/`216` equivalents).
-- [ ] Follow-up queue (polled at `agent-loop.ts:220` equivalent).
-- [ ] Skills: `.pi/skills/*.md` loader (markdown with frontmatter), conditional inclusion gated by `read` tool availability.
-- [ ] Abort flag threaded through every call; on abort, flush partial assistant message with `stopReason: "aborted"`.
-- [ ] `beforeToolCall` / `afterToolCall` hooks as Mojo trait methods.
+#### W1 — Walk.Crawl: persistence + embedded pipeline (weeks 5–7)
+**Goal:** existing pi sessions are readable, AGENTS.md is composable, and we have a model-load-once pipeline so everything else iterates fast.
 
-**Gate:** 100-turn autonomous session runs to completion. RSS < 200 MB excl. weights/KV (relaxed vs. R2 target).
+Three slices, parallelizable across 3 agents:
+
+- **Session store** (port of `packages/coding-agent/src/core/session-manager.ts`):
+  - [ ] JSONL reader/writer for all 7 v3 entry types: `session`, `message`, `thinking_level_change`, `model_change`, `compaction`, `branch_summary`, `custom`, `custom_message`.
+  - [ ] Session tree builder: `get_leaf_branches()`, `resolve_path(leaf_id) → List[AgentMessage]`, fork + label.
+  - [ ] `--session <uuid-prefix|path>` resolver — port of `main.ts:147-180`.
+  - [ ] Every struct constructor uses `.copy()` discipline (per §0).
+
+- **Context loader** (port of `resource-loader.ts:58-75` + `system-prompt.ts:28-80`):
+  - [ ] Walk cwd→root for `AGENTS.md` / `CLAUDE.md`. Concatenate matches.
+  - [ ] `.pi/SYSTEM.md` + `.pi/APPEND_SYSTEM.md` project overrides.
+  - [ ] Global `~/.pi/agent/AGENTS.md`; `--no-context-files` toggle.
+  - [ ] System prompt builder: tool descriptions + context files + date + cwd.
+
+- **Embedded MAX pipeline** (replaces the C3 `max generate` subprocess):
+  - [ ] Python module: build `TextGenerationPipeline(PipelineConfig(model=..., ...))` once at startup.
+  - [ ] `generate(messages, max_new_tokens)` → streams tokens into a shared queue.
+  - [ ] Mojo side calls a single Python function that drives iteration (never loops over a Python generator from Mojo).
+  - [ ] Token-level streaming callback, not line-level.
+  - [ ] Target: first token < 3 s after process start (model pre-loaded), <100 ms per subsequent turn-start.
+
+**Gate:**
+- All 7 JSONL entry types round-trip cleanly on a corpus of ≥10 real pi-mono sessions. TS `pi` opens mojopi-written session files without error.
+- `mojopi -p "…"` using the embedded pipeline produces the same answer as Crawl's C3 demo but with <100 ms turn-to-turn latency on a warm model.
+- 22/22 Crawl tests still green; new W1 tests bring the suite to ≥35.
+
+**Relaxations vs. original Walk.Crawl:**
+- "≥50 real sessions" → "≥10 sessions covering all 7 entry types." Real corpora this early don't have coverage; relaxing unblocks the phase.
+- Non-goal: image/binary message blocks (deferred to W3 if needed).
+
+#### W2 — Walk.Walk: 7 tools + ReAct loop + CLI (weeks 7–9)
+**Goal:** core agent works end-to-end on a scripted multi-turn task.
+
+Four parallel streams, ~5 agents:
+
+- **Tool parity** (2 agents, split):
+  - Agent A: `read` (extend from C2), `grep`, `find`, `ls` — read-only tools.
+  - Agent B: `bash`, `edit`, `write` — mutating tools.
+  - Each tool: ≥20 golden fixtures (originally 30+; relaxed). Total ≥140 fixtures.
+  - Python shim isolation: any tool using Python libs (diff-match-patch, Pillow) lives behind a Mojo trait, swappable to native later.
+  - Cancellation via abort flag; `bash` forwards SIGTERM to child tree.
+
+- **ReAct loop** (1 agent):
+  - Port of `agent-loop.ts:155-331` — `run_loop()` + `stream_assistant_response()`.
+  - Sequential tool dispatch only; parallel deferred to R3.
+  - **Tool-call extraction from token stream** — operate on tokens, not lines (lesson from Crawl). Detect `<tool_call>…</tool_call>` or Llama-3.1 native tool-call tokens.
+  - Retry-on-malformed loop: max 3 attempts, inject syntax-error tool result back into context.
+
+- **CLI arg parser** (1 agent):
+  - Port of `cli/args.ts`. All flags: `--model`, `--tools`, `--system-prompt`, `--no-*`, etc.
+  - Built on top of W1's `scripts/run.sh` wrapper (pixi arg-forwarding is still broken; we stay on the workaround).
+
+- **TUI** (1 agent, deferred sub-task):
+  - Python `textual` shim for interactive mode. Input box + streaming pane + tool-call collapsible.
+  - **Not on the gate.** W2 gate runs in `-p` print mode. TUI lands in W2 or slips to W3 without blocking.
+
+**Gate:** A 20-turn scripted session ("analyze this repo, propose a refactor, apply changes, run tests") completes in `-p` mode without divergence from the TS reference on deterministic inputs. RSS stays under 250 MB excl. weights/KV.
+
+**Timing note:** at 15 tok/s on CPU, 20 turns × ~100 tok ≈ 130 s of generation alone. Budget 15 min per gate run including tool execution; expect 2–4 gate runs before landing.
+
+#### W3 — Walk.Run: compaction + steering + skills (weeks 9–11)
+**Goal:** long sessions survive; the agent can be interrupted and gracefully correct course.
+
+- [ ] **Context compaction**: trigger at 75% of window; secondary embedded-pipeline call summarizes oldest N tool-call/result pairs; write `CompactionEntry` preserving branching (the original tree stays intact; compaction is a new node).
+- [ ] **Steering messages**: mid-turn user interrupt queue. Producer runs in Python (keyboard or file-watcher); Mojo polls via a single-function call each turn boundary. **No Mojo async.**
+- [ ] **Follow-up queue**: same Python-producer pattern, polled at the `agent-loop.ts:220` equivalent.
+- [ ] **Skills**: `.pi/skills/*.md` loader (markdown with YAML frontmatter) via Python interop. Conditional inclusion gated by `read` tool availability.
+- [ ] **Abort/cancellation**: abort flag threaded through every call; on abort, flush partial assistant message with `stopReason: "aborted"` and finalize the session entry.
+- [ ] **`beforeToolCall` / `afterToolCall`** hooks as Mojo trait methods — sets up the Run-tier extension API.
+
+**Gate:** a 100-turn autonomous session runs to completion. RSS < 250 MB excl. weights/KV (relaxed from original 200 MB — the W1 embedded pipeline adds ~50 MB of tokenizer + scheduler overhead that's the cost of fast iteration). Context compaction fires at least once during the run.
+
+**Timing note:** 100 turns × ~100 tok = 10 min of generation on CPU plus tool time. Plan overnight CI runs for this gate.
 
 ---
 
