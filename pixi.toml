@@ -1,0 +1,31 @@
+[workspace]
+name = "mojopi"
+description = "Mojo/MAX port of pi-mono — a fully local coding agent"
+authors = ["mojopi contributors"]
+channels = [
+    "https://conda.modular.com/max-nightly/",
+    "conda-forge",
+]
+platforms = ["osx-arm64", "linux-64"]
+
+[dependencies]
+# Mojo SDK / MAX engine — pinned to the 26.2 series per PLAN.md §4 C1.
+max = "26.2.*"
+python = "3.12.*"
+pytest = "*"
+
+[tasks]
+# Full test suite: Mojo tests first, then Python tests.
+test = "mojo test tests/ && pytest tests/"
+test-mojo = "mojo test tests/"
+test-python = "pytest tests/ -v"
+
+# Formatting.
+format = "mojo format src/ tests/"
+format-check = "mojo format --check src/ tests/"
+
+# Run the binary.
+run = "mojo run src/main.mojo"
+
+# C1 smoke gate: import max from Python and print its version.
+smoke = "python -c \"import max; print(max.__version__)\""
