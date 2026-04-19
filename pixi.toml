@@ -18,7 +18,7 @@ pytest = "*"
 # Full test suite — delegates to scripts/test.sh so all path/env plumbing
 # lives in one place (PYTHONPATH, mojo -I src).
 test = "bash scripts/test.sh"
-test-mojo = "bash -c 'PYTHONPATH=src mojo test -I src tests/'"
+test-mojo = "bash -c 'for f in tests/test_*.mojo; do echo running $f; PYTHONPATH=src mojo run -I src \"$f\" || exit 1; done'"
 test-python = "bash -c 'PYTHONPATH=src pytest tests/ -v'"
 
 # Formatting.

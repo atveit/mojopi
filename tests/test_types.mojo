@@ -103,3 +103,20 @@ def test_user_message_multi_block_round_trip() raises:
     assert_equal(len(msg.content), 3)
     assert_equal(msg.content[0].text, "first")
     assert_equal(msg.content[len(msg.content) - 1].text, "third")
+
+
+# Runnable entrypoint so `mojo run tests/test_types.mojo` exercises every test.
+# Any test that fails raises and propagates, causing the process to exit
+# non-zero — picked up by scripts/test.sh's `set -e`.
+def main() raises:
+    test_text_content()
+    test_image_content()
+    test_thinking_content()
+    test_tool_call()
+    test_usage()
+    test_stop_reason()
+    test_user_message()
+    test_assistant_message()
+    test_tool_result_message()
+    test_user_message_multi_block_round_trip()
+    print("OK: test_types (10 tests)")

@@ -24,3 +24,12 @@ def test_empty_prompt_still_well_formed() raises:
 def test_special_chars_do_not_break_template() raises:
     var out = format_llama3_single_turn("hello\nworld\t<foo>")
     assert_true("hello\nworld\t<foo>" in out)
+
+
+# Runnable entrypoint so `mojo run tests/test_formatter.mojo` exercises every test.
+def main() raises:
+    test_single_turn_header_structure()
+    test_user_message_embedded()
+    test_empty_prompt_still_well_formed()
+    test_special_chars_do_not_break_template()
+    print("OK: test_formatter (4 tests)")

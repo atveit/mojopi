@@ -37,3 +37,13 @@ def test_truncation_marker_on_byte_cap() raises:
     var result = read_text("tests/fixtures/fifty_lines.txt", 1, 100, 20)
     assert_true(result.truncated)
     assert_true("lines omitted" in result.content)
+
+
+# Runnable entrypoint so `mojo run tests/test_read.mojo` exercises every test.
+def main() raises:
+    test_read_full_fifty_line_file()
+    test_read_with_offset_and_limit()
+    test_read_beyond_eof_is_graceful()
+    test_read_small_file()
+    test_truncation_marker_on_byte_cap()
+    print("OK: test_read (5 tests)")
