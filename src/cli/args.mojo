@@ -39,6 +39,9 @@ struct CliArgs(Copyable, Movable):
     # Debug
     var verbose: Bool           # --verbose / -v
 
+    # Output mode
+    var output_mode: String     # --mode json|rpc|print (default: "print" in -p mode)
+
     def __init__(out self):
         self.mode = String(MODE_INTERACTIVE)
         self.prompt = String("")
@@ -52,6 +55,7 @@ struct CliArgs(Copyable, Movable):
         self.no_tools = False
         self.enable_structured_output = False
         self.verbose = False
+        self.output_mode = String("print")
 
 
 struct ParseResult(Copyable, Movable):
@@ -180,6 +184,12 @@ def parse_args(raw_args: List[String]) raises -> ParseResult:
             result.verbose = True
             i += 1
 
+        elif flag == String("--mode"):
+            if i + 1 >= len(raw_args):
+                return ParseResult(CliArgs(), String("--mode requires an argument"), False)
+            result.output_mode = raw_args[i + 1].copy()
+            i += 2
+
         else:
             return ParseResult(
                 result^,
@@ -207,6 +217,7 @@ def usage_string() raises -> String:
         "  --tools <tool1,tool2,...>       restrict to named tools (default: all)\n"
         "  --no-tools                     disable all tools\n"
         "  --verbose, -v                  enable verbose debug output\n"
+        "  --mode json|rpc|print          output mode (default: print)\n"
         "  --help, -h                     show this help message\n"
     )
 

@@ -1,0 +1,43 @@
+{% set version = "0.1.0" %}
+
+package:
+  name: mojopi
+  version: {{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  script: |
+    mkdir -p $PREFIX/bin
+    cp scripts/mojopi.sh $PREFIX/bin/mojopi
+    chmod +x $PREFIX/bin/mojopi
+    # Copy the full source tree to a package directory
+    mkdir -p $PREFIX/lib/mojopi
+    cp -r src $PREFIX/lib/mojopi/
+    cp -r scripts $PREFIX/lib/mojopi/
+    cp pixi.toml $PREFIX/lib/mojopi/
+    cp pyproject.toml $PREFIX/lib/mojopi/ 2>/dev/null || true
+
+requirements:
+  host:
+    - python >=3.12
+  run:
+    - python >=3.12
+    - max =26.2.*
+    - max-pipelines
+    - textual
+
+test:
+  commands:
+    - mojopi --version
+
+about:
+  home: https://github.com/atveit/mojopi
+  license: MIT
+  summary: "Mojo/MAX port of pi-mono — a fully local coding agent"
+  description: |
+    mojopi is a local, zero-network coding agent powered by Modular MAX.
+    It ports the pi-mono TypeScript coding agent to Mojo + Python, using
+    MAX for on-device LLM inference.

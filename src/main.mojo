@@ -4,6 +4,7 @@ from std.python import Python
 from cli.args import parse_args, argv_to_list, CliArgs, ParseResult
 from cli.print_helper import resolve_prompt, read_stdin_prompt
 from max_brain.inference import generate_embedded, run_one_shot, get_max_version
+from agent.output_mode import emit_answer, emit_error, is_valid_mode
 
 comptime VERSION = "0.1.0-walk"
 
@@ -70,17 +71,29 @@ def main() raises:
         var _ = args.system_prompt_override.copy()
         var _ = args.append_system_prompt.copy()
 
+        # Validate output mode
+        var output_mode = args.output_mode.copy()
+        if not is_valid_mode(output_mode):
+            print("mojopi: error: --mode must be json, rpc, or print")
+            return
+
         # Generate
         var model = args.model.copy()
         var max_new = args.max_new_tokens
 
         try:
             var result = generate_embedded(prompt, model, max_new)
-            print(result)
+            if output_mode == String("print"):
+                print(result)
+            else:
+                emit_answer(result, output_mode)
         except:
-            var rc = run_one_shot(prompt, model, max_new)
-            if rc != 0:
-                print("(generate exited with code", rc, ")")
+            if output_mode == String("print"):
+                var rc = run_one_shot(prompt, model, max_new)
+                if rc != 0:
+                    print("(generate exited with code", rc, ")")
+            else:
+                emit_error(String("generation failed"), output_mode)
         return
 
     # Interactive mode — not yet implemented in R1

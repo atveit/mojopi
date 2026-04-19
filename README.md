@@ -9,10 +9,10 @@ inference.
 
 ## Status
 
-🏁 **Crawl tier closed (2026-04-19)** — first generation end-to-end,
-22/22 tests green. See [STATUS.md](STATUS.md) for the TLDR and
-[PLAN.md](PLAN.md) for the full 9-phase roadmap. Agent loop, tools,
-and TUI land in the Walk tier next.
+🏁 **Run tier in progress (2026-04-19)** — Walk tier closed (100 tests, full ReAct loop).
+Run tier R1 (TUI, extension API, print hardening) and R2 (MAX pipeline fix, benchmarks,
+structured output) complete. R3 (distribution, JSON/RPC modes, v1.0) in progress.
+See [STATUS.md](STATUS.md) and [PLAN.md](PLAN.md).
 
 ## Prerequisites
 
@@ -39,6 +39,22 @@ pixi run bash scripts/run.sh -p "What is 2+2? Answer briefly."
 
 # Override the model / cap:
 pixi run bash scripts/run.sh -p "hi" --model meta-llama/Llama-3.2-1B-Instruct --max-new-tokens 40
+```
+
+## Examples
+
+```bash
+# One-shot print mode
+pixi run run -- -p "Explain list comprehensions in one sentence"
+
+# Streaming JSON (for editor integrations)
+pixi run run -- --mode json -p "Hello"
+
+# Read prompt from file
+pixi run run -- -p @my_prompt.txt
+
+# Use a custom extension
+pixi run run -- --extension my_ext.py -p "use my tool"
 ```
 
 ### Why `bash scripts/run.sh` and not `pixi run run -- …`?

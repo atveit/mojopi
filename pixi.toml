@@ -18,6 +18,11 @@ python = "3.12.*"
 pytest = "*"
 textual = "*"
 
+# v1.0 release pin — when cutting v1.0, pin max and python to exact builds
+# and run the full test suite. See PLAN.md §4 R3 for details.
+# max = "=26.2.1"   # uncomment and pin exact build for v1.0
+# python = "=3.12.7" # uncomment and pin exact Python for v1.0
+
 [tasks]
 # Full test suite — delegates to scripts/test.sh so all path/env plumbing
 # lives in one place (PYTHONPATH, mojo -I src).

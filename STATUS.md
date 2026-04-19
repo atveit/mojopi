@@ -32,6 +32,24 @@ Run tier (R1 → R2 → R3): TUI + extension API + print polish → benchmarks +
 
 ---
 
+## 2026-04-19 — 🏁 Run tier in progress (R1 + R2 complete, R3 in flight)
+
+### TLDR
+- ✅ R1: TUI (textual), extension API (register_tool/command/event), print mode hardening, docs
+- ✅ R2: MAX pipeline bug fixed (MAXModelConfig API), benchmark suite, structured output (--enable-structured-output), GIL profiling infrastructure
+- 🔄 R3: --mode json/rpc, parallel tool dispatch, conda packaging, v1.0 prep
+- 🧪 164 tests green (3 slow skipped) before R3 launch
+
+### Gates in progress
+- **R1 — TUI + extensions + print polish:** TUI renders, extension API wired, -p hardened ✅
+- **R2 — benchmarks + GPU path:** MAX config bug fixed, benchmark harness live ✅
+- **R3 — distribution + v1.0:** in progress 🔄
+
+### Commit trail
+[`449740a`](https://github.com/atveit/mojopi/commit/449740a) (R2 close)
+· [`04d7d6d`](https://github.com/atveit/mojopi/commit/04d7d6d) (R1 close)
+---
+
 ## 2026-04-19 — 🏁 Crawl tier closed (C1 + C2 + C3)
 
 ### TLDR
