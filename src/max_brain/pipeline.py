@@ -9,14 +9,45 @@ from typing import Any
 
 
 def get_max_version() -> str:
-    """Return the installed MAX version string. Used by the C1 smoke gate."""
-    # Import inside the function so the module itself is importable even when
-    # MAX is not installed (supports environments running only Python tests).
+    """Return the installed MAX version string. Used by the C1 smoke gate.
+
+    The MAX Python package does not expose `__version__` consistently across
+    releases — in some builds it's `max.version.__version__`, in others it
+    lives only in the conda metadata. Probe several locations and fall back
+    to importlib.metadata before declaring it unknown.
+    """
     try:
         import max
-        return getattr(max, "__version__", "unknown")
     except ModuleNotFoundError:
         return "max-not-installed"
+
+    # 1. Direct attributes on the `max` module.
+    for attr in ("__version__", "VERSION", "version"):
+        v = getattr(max, attr, None)
+        if v is not None and not callable(v) and not hasattr(v, "__version__"):
+            return str(v)
+
+    # 2. Nested `max.version.__version__` (seen in some MAX builds).
+    try:
+        from max import version as _v_mod
+        inner = getattr(_v_mod, "__version__", None)
+        if inner:
+            return str(inner)
+    except Exception:
+        pass
+
+    # 3. Conda / pip package metadata, under any of the known package names.
+    try:
+        from importlib.metadata import version, PackageNotFoundError
+        for pkg in ("max", "max-pipelines", "modular", "max-engine"):
+            try:
+                return version(pkg)
+            except PackageNotFoundError:
+                continue
+    except Exception:
+        pass
+
+    return "installed (version unknown)"
 
 
 def build_pipeline(model_repo: str, max_length: int = 8192) -> dict[str, Any]:

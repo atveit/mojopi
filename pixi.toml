@@ -27,5 +27,8 @@ format-check = "mojo format --check src/ tests/"
 # Run the binary.
 run = "mojo run src/main.mojo"
 
-# C1 smoke gate: import max from Python and print its version.
-smoke = "python -c \"import max; print(max.__version__)\""
+# C1 smoke gate: exercise the Mojo→Python→MAX bridge end-to-end.
+# Delegates to scripts/smoke.sh, which invokes the Mojo smoke driver; the
+# driver calls get_max_version() in max_brain/pipeline.py. This is the true
+# C1 gate — it verifies Python interop works, not just that `max` imports.
+smoke = "bash scripts/smoke.sh"
