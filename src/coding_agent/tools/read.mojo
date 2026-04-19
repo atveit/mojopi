@@ -71,10 +71,12 @@ def read_text(
     if stop > total_lines:
         stop = total_lines
 
-    # Build the sliced line list.
+    # Build the sliced line list. `String.split(sep)` returns StringSlice
+    # views into `text`; materialize into owned Strings so downstream code
+    # doesn't depend on `text`'s lifetime.
     var sliced = List[String]()
     for i in range(start, stop):
-        sliced.append(all_lines[i])
+        sliced.append(String(all_lines[i]))
     var sliced_count = len(sliced)
 
     # Join with '\n'. Manual loop — avoids relying on a specific join API shape.

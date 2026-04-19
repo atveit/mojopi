@@ -23,7 +23,7 @@ test-python = "bash -c 'PYTHONPATH=src pytest tests/ -v'"
 
 # Formatting.
 format = "mojo format src/ tests/"
-format-check = "mojo format --check src/ tests/"
+format-check = "bash scripts/format-check.sh"
 
 # Run the binary.
 run = "mojo run src/main.mojo"

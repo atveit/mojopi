@@ -86,7 +86,9 @@ struct UserMessage(Copyable, Movable):
     var timestamp: Int64
 
     def __init__(out self, content: List[TextContent], timestamp: Int64):
-        self.content = content
+        # List/struct params moved in; Mojo requires explicit ^ since these
+        # types aren't ImplicitlyCopyable. Int64 is register-copyable → no ^.
+        self.content = content.copy()
         self.timestamp = timestamp
 
 
@@ -109,10 +111,10 @@ struct AssistantMessage(Copyable, Movable):
         stop_reason: StopReason,
         timestamp: Int64,
     ):
-        self.content = content
-        self.model = model
-        self.usage = usage
-        self.stop_reason = stop_reason
+        self.content = content.copy()
+        self.model = model.copy()
+        self.usage = usage.copy()
+        self.stop_reason = stop_reason.copy()
         self.timestamp = timestamp
 
 
@@ -133,8 +135,8 @@ struct ToolResultMessage(Copyable, Movable):
         is_error: Bool,
         timestamp: Int64,
     ):
-        self.tool_call_id = tool_call_id
-        self.tool_name = tool_name
-        self.content = content
+        self.tool_call_id = tool_call_id.copy()
+        self.tool_name = tool_name.copy()
+        self.content = content.copy()
         self.is_error = is_error
         self.timestamp = timestamp
