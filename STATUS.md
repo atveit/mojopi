@@ -6,6 +6,32 @@ See **[PLAN.md](PLAN.md)** for the full 9-phase crawl/walk/run roadmap.
 
 ---
 
+## 2026-04-19 — 🏁 Walk tier closed (W1 + W2 + W3)
+
+### TLDR
+- 🎉 Full ReAct agent loop: session store + all 7 tools + steering/abort/compaction working
+- 🧪 100/100 tests green (Mojo + Python across all modules)
+- 🗂️ Session v3 format: 7 entry types (session, message, thinking_level_change, model_change, compaction, branch_summary, custom_message), JSONL + tree builder
+- 🛠️ 7 tools wired: read, grep, find, ls, bash, edit, write — all with Python interop helpers
+- 🔄 ReAct loop: ChatML formatting → MAX generate → extract_tool_calls → dispatch → iterate (max 8 turns)
+- 📦 W3 extras: context compaction (75% threshold), steering queue (keyboard/file-watcher), skills loader (YAML frontmatter), abort flag (SIGTERM propagation), tool hooks (before/after)
+- ⚙️ Extension API substrate: `agent.hooks` (before/after tool call) wired into `dispatch_tool`
+- 📝 PLAN.md updated with Walk→Run learnings: Python interop is permanent, TUI deferred to R1, MAX pipeline bug tracked
+
+### Gates met
+- **W1 — session + context + embedded pipeline:** all stores + loaders + pipeline cache ✅
+- **W2 — all 7 tools + ReAct loop + CLI args:** full CliArgs struct + agent loop ✅
+- **W3 — compaction + steering + skills + abort + hooks + loop integration:** all wired into run_loop() ✅
+
+### Commit trail
+[`5af58fe`](https://github.com/atveit/mojopi/commit/5af58fe) (W3 close)
+· [`9897455`](https://github.com/atveit/mojopi/commit/9897455) (W1+W2 close)
+
+### Next up
+Run tier (R1 → R2 → R3): TUI + extension API + print polish → benchmarks + GPU path → distribution + v1.0. See [PLAN.md §4 Tier R](PLAN.md).
+
+---
+
 ## 2026-04-19 — 🏁 Crawl tier closed (C1 + C2 + C3)
 
 ### TLDR

@@ -16,6 +16,7 @@ max = "26.2.*"
 max-pipelines = "*"
 python = "3.12.*"
 pytest = "*"
+textual = "*"
 
 [tasks]
 # Full test suite — delegates to scripts/test.sh so all path/env plumbing

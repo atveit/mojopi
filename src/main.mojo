@@ -1,87 +1,87 @@
-# mojopi CLI entry -- C3 scope: one-shot `mojopi -p "<prompt>"` that streams
-# tokens from MAX back to stdout. No tools, no session, no agent loop -- those
-# arrive in Walk phases (see PLAN.md section 4).
-
 from std.sys import argv
-from prompt.formatter import format_llama3_single_turn
-from max_brain.inference import get_max_version, run_one_shot
+from std.python import Python
 
-# Default model: Modular's published Llama-3.1-8B Q4_K_M GGUF. This is
-# MAX 26.2's reference model (CPU-compatible via Q4_K). A smaller model
-# would be nice for smoke but the MAX 26.2 Apple-GPU topk constraint
-# means CPU is mandatory on arm64, and no smaller text model in the
-# supported-architectures list ships with CPU-compatible quant weights.
-comptime DEFAULT_MODEL = "modularai/Llama-3.1-8B-Instruct-GGUF"
-comptime DEFAULT_MAX_NEW_TOKENS = 64
+from cli.args import parse_args, argv_to_list, CliArgs, ParseResult
+from cli.print_helper import resolve_prompt, read_stdin_prompt
+from max_brain.inference import generate_embedded, run_one_shot, get_max_version
 
+comptime VERSION = "0.1.0-walk"
 
 def print_usage():
-    print("usage: mojopi -p <prompt> [--model <hf-repo>] [--max-new-tokens N]")
+    print("usage: mojopi [options]")
     print("")
-    print("C3 crawl-phase build: one-shot, non-interactive, stdout only.")
+    print("  -p, --print <prompt>     one-shot mode: generate and print to stdout")
+    print("  --version                print version and exit")
+    print("  --model <hf-repo>        model repo (default: modularai/Llama-3.1-8B-Instruct-GGUF)")
+    print("  --max-new-tokens N       token cap (default: 512)")
+    print("  --session <id>           resume session by uuid prefix or path")
+    print("  --no-context-files       skip AGENTS.md / CLAUDE.md context loading")
+    print("  --tools t1,t2            restrict to named tools")
+    print("  --no-tools               disable all tool use")
+    print("  --system-prompt <text>   override system prompt")
+    print("  --append-system-prompt <text>  append to system prompt")
+    print("  --verbose / -v           verbose output")
     print("")
-    print("    --version          print MAX version and exit")
-    print("    -p, --print        print mode — emits tokens to stdout")
-    print("    --model <repo>     override the default HF model repo")
-    print("    --max-new-tokens N cap on tokens to generate (default 64)")
-    print("")
-    print("default model:", DEFAULT_MODEL)
+    print("  Prompt can be @filepath to read from file.")
 
 
 def main() raises:
-    var args = argv()
-    # argv()[0] is the Mojo script path. When invoked via `mojo run script -- …`,
-    # argv()[1] is the literal "--" separator — skip it if present so user
-    # flags start at a consistent index.
-    var arg0 = 1
-    if len(args) >= 2 and String(args[1]) == "--":
-        arg0 = 2
+    var raw_args = argv_to_list()
 
-    if len(args) <= arg0:
+    var res = parse_args(raw_args)
+    if len(res.error) > 0:
+        print("mojopi: error:", res.error)
         print_usage()
         return
 
-    var first = String(args[arg0])
+    var args = res.args.copy()
 
-    if first == "--version":
+    if res.show_help:
+        print_usage()
+        return
+
+    if args.mode == String("version"):
         var v = get_max_version()
-        print("mojopi crawl-phase; max:", v)
+        print("mojopi", VERSION, "/ max:", v)
         return
 
-    if first != "-p" and first != "--print":
-        print_usage()
-        return
+    if args.mode == String("print"):
+        var prompt = args.prompt.copy()
 
-    if len(args) <= arg0 + 1:
-        # Mojo's print() has no `file=` kwarg; stderr routing is a W-phase concern.
-        print("error: -p requires a prompt argument")
-        print_usage()
-        return
+        # Stdin piping: if prompt is empty and stdin has data, read from stdin.
+        if len(prompt) == 0:
+            var stdin_text = read_stdin_prompt()
+            if len(stdin_text) > 0:
+                prompt = stdin_text
 
-    # Parse optional flags after the prompt: --model <repo>, --max-new-tokens N.
-    # (Minimal arg parsing — a real argparse equivalent lands in R1.)
-    var user_prompt = String(args[arg0 + 1])
-    var model = String(DEFAULT_MODEL)
-    var max_new = DEFAULT_MAX_NEW_TOKENS
-    var i = arg0 + 2
-    while i < len(args):
-        var flag = String(args[i])
-        if flag == "--model" and i + 1 < len(args):
-            model = String(args[i + 1])
-            i += 2
-        elif flag == "--max-new-tokens" and i + 1 < len(args):
-            max_new = Int(String(args[i + 1]))
-            i += 2
-        else:
-            print("error: unknown or incomplete flag:", flag)
+        if len(prompt) == 0:
+            print("mojopi: error: -p requires a prompt (or pipe from stdin)")
             print_usage()
             return
 
-    # Format as Llama-3 ChatML. Note this template is Llama-3-specific;
-    # Qwen/Gemma models ignore the header tokens as regular text but still
-    # respond. W2 introduces per-model prompt formatting.
-    var formatted = format_llama3_single_turn(user_prompt)
+        # @file expansion
+        try:
+            prompt = resolve_prompt(prompt)
+        except:
+            print("mojopi: error: could not read @file argument")
+            return
 
-    var rc = run_one_shot(formatted, model, max_new)
-    if rc != 0:
-        print("(max generate exited with code", rc, ")")
+        # Apply system prompt overrides (context available for future use)
+        var _ = args.system_prompt_override.copy()
+        var _ = args.append_system_prompt.copy()
+
+        # Generate
+        var model = args.model.copy()
+        var max_new = args.max_new_tokens
+
+        try:
+            var result = generate_embedded(prompt, model, max_new)
+            print(result)
+        except:
+            var rc = run_one_shot(prompt, model, max_new)
+            if rc != 0:
+                print("(generate exited with code", rc, ")")
+        return
+
+    # Interactive mode — not yet implemented in R1
+    print("mojopi: interactive mode is not yet implemented (use -p for print mode)")

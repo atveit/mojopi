@@ -4,6 +4,7 @@ from agent.types import AgentContext, HistoryEntry, ParsedToolCall, AgentTool
 from agent.tool_executor import dispatch_tool
 from agent.steering import poll_steering, clear_steering
 from agent.abort import clear_abort, is_aborted, request_abort
+from coding_agent.extensions.events import fire_event
 
 # Maximum tool call iterations per turn (prevents infinite loops).
 comptime MAX_TOOL_ITERATIONS = 10
@@ -106,6 +107,8 @@ def run_loop(
     clear_abort()
     clear_steering()
 
+    fire_event(String("before_agent_start"), String("{}"))
+
     var history = List[HistoryEntry]()
     history.append(HistoryEntry(String("user"), user_input))
 
@@ -133,6 +136,7 @@ def run_loop(
         # If the formatted prompt exceeds ~6000 chars (~1500 tokens),
         # trim the oldest middle turns to keep the model happy.
         # Full compaction (with summarization) happens in a separate pass.
+        fire_event(String("before_compact"), String("{}"))
         if len(prompt) > 24000:  # ~6000 tokens × 4 chars/token
             # Keep system prompt + first user + last 4 turns
             if len(history) > 6:
@@ -142,6 +146,8 @@ def run_loop(
                     trimmed.append(history[j].copy())
                 history = trimmed^
                 prompt = format_history_as_chatml(context.system_prompt, history)
+
+        fire_event(String("message_start"), String("{}"))
 
         # Call MAX inference via Python
         var mod = Python.import_module("max_brain.pipeline")
@@ -158,6 +164,8 @@ def run_loop(
             # run_one_shot writes to stdout directly; we can't capture it here
             # For now, return a placeholder (W2 will improve this)
             return String("[run_one_shot: output was written to stdout]")
+
+        fire_event(String("message_end"), String("{}"))
 
         # Extract tool calls
         var tool_calls = extract_tool_calls(response_text)
