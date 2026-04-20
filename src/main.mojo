@@ -9,7 +9,7 @@ from agent.types import AgentContext, HistoryEntry, AgentTool
 from agent.loop import run_loop
 from agent.output_mode import emit_answer, emit_error, is_valid_mode
 
-comptime VERSION = "1.0.0-rc"
+comptime VERSION = "1.0.1"
 
 
 def print_usage():
@@ -59,8 +59,10 @@ def _build_context(args: CliArgs) raises -> AgentContext:
 
 
 def _run_interactive(args: CliArgs) raises:
-    print("mojopi", VERSION, "— interactive mode. Type /exit to quit, /help for commands.")
     var builtins = Python.import_module("builtins")
+    var repl = Python.import_module("cli.repl_helper")
+    print(String(repl.welcome_banner(VERSION)))
+
     var ctx = _build_context(args)
 
     while True:
@@ -72,10 +74,11 @@ def _run_interactive(args: CliArgs) raises:
         if stripped == "/exit" or stripped == "/quit":
             return
         if stripped == "/help":
-            print("  /exit, /quit       exit")
-            print("  /clear             clear screen")
-            print("  /version           print version")
-            print("  anything else      send to agent")
+            print("  /exit, /quit           exit")
+            print("  /clear                 clear screen")
+            print("  /version               print version")
+            print("  /file <path>           load file contents into next message")
+            print("  anything else          send to agent")
             continue
         if stripped == "/clear":
             print("\033[2J\033[H")
@@ -84,9 +87,18 @@ def _run_interactive(args: CliArgs) raises:
             var v = get_max_version()
             print("mojopi", VERSION, "/ max:", v)
             continue
+        if stripped.startswith("/file "):
+            var py_stripped = Python.import_module("builtins").str(stripped)
+            var path = String(py_stripped[6:].strip())
+            try:
+                var contents = String(repl.read_file_for_slash_command(path))
+                line = String("Here is ") + path + String(":\n\n") + contents
+            except:
+                print("could not read file:", path)
+                continue
 
         var reply = run_loop(line, ctx, args.model, args.max_new_tokens)
-        print(reply)
+        _ = repl.render_response(reply)
 
 
 def main() raises:
@@ -99,6 +111,15 @@ def main() raises:
         return
 
     var args = res.args.copy()
+
+    # Environment-variable defaults only apply when the user didn't override.
+    var repl = Python.import_module("cli.repl_helper")
+    var env_model = String(repl.env_model_default())
+    if len(env_model) > 0 and args.model == String("modularai/Llama-3.1-8B-Instruct-GGUF"):
+        args.model = env_model
+    var env_tokens = Int(py=repl.env_max_new_tokens_default())
+    if env_tokens > 0 and args.max_new_tokens == 512:
+        args.max_new_tokens = env_tokens
 
     if res.show_help:
         print_usage()
