@@ -67,13 +67,20 @@ def generate_embedded(
     model_repo: str = "modularai/Llama-3.1-8B-Instruct-GGUF",
     max_new_tokens: int = 64,
 ) -> str:
-    """Generate text using the cached pipeline (no subprocess).
+    """Generate text using the best available backend.
 
-    Drives iteration in Python (do NOT iterate a Python generator from Mojo —
-    it truncates early around chunk 16). Returns the generated text as a string.
-
-    Falls back to run_one_shot() if the embedded pipeline raises.
+    Priority on arm64: MLX Metal (fastest) → MAX embedded → subprocess fallback.
+    On Linux: MAX embedded → subprocess fallback.
     """
+    # MLX Metal path — preferred on Apple Silicon.
+    if _is_arm64:
+        try:
+            from max_brain.mlx_backend import generate_mlx, is_available as mlx_ok
+            if mlx_ok():
+                return generate_mlx(prompt, model_repo, max_new_tokens)
+        except Exception as exc:
+            print(f"[pipeline] MLX failed ({exc}); trying MAX embedded")
+
     try:
         pipeline = get_or_create_pipeline(model_repo)
     except Exception as exc:
