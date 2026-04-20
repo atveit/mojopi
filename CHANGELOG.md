@@ -5,6 +5,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.2.0] — 2026-04-20
+
+### Added
+- **Session resume** (`src/agent/session_manager.py`, `session_resolver.py`):
+  `--session <prefix>` now resolves UUID prefixes, rehydrates history count,
+  persists each turn to `~/.pi/sessions/<id>/transcript.jsonl`. 10 + 14 unit tests.
+- **Thinking-token stripping** (`src/agent/thinking.py`): strips `<think>`,
+  `<thinking>`, `<|thinking|>`, ```thinking``` blocks before tool-call
+  extraction. Reasoning models unblocked. 14 unit tests.
+- **Parse-retry scaffold** (`src/agent/parse_retry.py`): re-prompt with format
+  reminder up to 3× when model emits JSON-shaped output without `<tool_call>`
+  tags. 7 unit tests.
+- **Turn-cap summarization** (`src/agent/turn_summary.py`): loop.mojo no
+  longer returns `"[agent: max tool iterations reached]"`; produces readable
+  summary of user request + tool log + partial findings. 9 unit tests.
+- **Auto-compaction bridge** (`src/agent/compaction_bridge.py`): exposes the
+  W3 compaction module as a loop-callable policy with token-budget trigger.
+  8 unit tests.
+- **Auto-memory bridge** (`src/coding_agent/memory/auto_inject.py`):
+  `augment_system_prompt()` and `extract_after_session()` for opt-in memory
+  wiring. 11 unit tests.
+- **Tool-calling verification** (`scripts/verify_tool_calling.py`): detects
+  cached tool-capable MLX models and runs empirical smoke test. 5 slow tests.
+- `docs/V1.2_GAP_CLOSURE.md` — functional-parity planning doc.
+
+### Wired
+- `main.mojo` REPL: `/session` slash command; auto-save per turn; session
+  prefix resolution on launch; rehydrate count display.
+- `loop.mojo`: `strip_thinking_text()` before every `extract_tool_calls`;
+  `summarize_turn_cap()` replaces the turn-cap placeholder.
+
+### Not wired (opt-in via Python for now)
+- Auto-memory injection into agent loop (needs real-model eval first)
+- Auto-compaction trigger in agent loop (needs prompt-budget tuning first)
+
+### Test counts
+**355 Python + 12 Mojo** tests collected — up from 264 at v1.1.0.
+
+---
+
 ## [1.1.0] — 2026-04-20
 
 ### Added

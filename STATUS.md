@@ -6,6 +6,46 @@ See **[PLAN.md](PLAN.md)** for the full 9-phase crawl/walk/run roadmap.
 
 ---
 
+## 2026-04-20 — 🎯 v1.2.0: pi-mono functional parity
+
+### TLDR
+- 📂 **Session resume actually works** — `--session <uuid-prefix>` resolves to full ID, rehydrates history count, persists each turn to `~/.pi/sessions/<id>/transcript.jsonl`
+- 🧠 **Auto-memory bridge** — `augment_system_prompt()` ready for opt-in injection; `extract_after_session()` runs fact extraction on REPL exit (swallows errors so session close never blocks)
+- 🧩 **Thinking-token stripping** — `<think>`, `<thinking>`, `<|thinking|>`, and ```thinking code fences stripped from responses before tool-call extraction (reasoning models unblocked)
+- 🔁 **Parse-retry scaffold** — `retry_parse_tool_calls` re-prompts with format reminder up to 3× when model emits JSON-shaped output without `<tool_call>` tags
+- 📊 **Turn-cap summarization** — loop.mojo no longer returns `"[agent: max tool iterations reached]"`; produces a readable summary of user request + tool log + partial findings + recommended next step
+- 🗜️ **Auto-compaction bridge** — `auto_compact_if_needed()` ready for opt-in compaction when history exceeds 75% of context budget
+- 🔖 **Session resolver** — UUID-prefix lookup (`abc12` → `abc12345-...`), ambiguous-prefix detection, mtime-sorted listing, latest-session lookup
+- 🧪 **Tool-calling empirical script** — `scripts/verify_tool_calling.py` detects cached tool-capable MLX models and runs an end-to-end smoke; exits 0/1/2 for pass/fail/skip
+- 🧪 **355 Python tests + 12 Mojo tests** — up from 264 at v1.1; 91 new tests across 6 modules
+- 🏷️ `v1.2.0` tagged and pushed
+
+### 6 parallel agents, zero file conflicts
+| Agent | Module | Tests |
+|-------|--------|-------|
+| A Session resume | `src/agent/session_manager.py` | 10 |
+| B Auto-memory | `src/coding_agent/memory/auto_inject.py` | 11 |
+| C Thinking + retry | `src/agent/thinking.py`, `parse_retry.py` | 14 + 7 |
+| D Compaction + summary | `src/agent/compaction_bridge.py`, `turn_summary.py` | 8 + 9 |
+| E Resolver | `src/agent/session_resolver.py` | 14 |
+| F Empirical | `scripts/verify_tool_calling.py`, `tests/test_real_tool_calling.py` | 4 + 1 skip |
+
+### Wired into main.mojo + loop.mojo by lead
+- main.mojo: `/session` slash command, per-turn save via `save_turn`, prefix resolution via `resolve_session_id`, session rehydrate count on launch
+- loop.mojo: `strip_thinking_text()` on every response before tool extraction; `summarize_turn_cap(history)` replaces the old placeholder when the iteration cap is hit
+
+### What's NOT wired (still opt-in from Python)
+- Auto-memory injection (needs eval of retrieval noise on real models first)
+- Auto-compaction (needs real-world prompt budget measurement)
+
+### Commit trail
+`b0be102` v1.1.0 README · (this commit) v1.2.0 with 6 new modules + loop/main wiring
+
+### Next up (v1.3)
+TUI auto-launch + streaming; `/model`, `/history`, `/save`, `/fork` slash commands; `doctor` subcommand; Llama-3.1-8B-Instruct-4bit download script.
+
+---
+
 ## 2026-04-20 — 🚀 v1.1.0: beyond-the-port features
 
 ### TLDR

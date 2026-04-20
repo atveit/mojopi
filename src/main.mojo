@@ -9,7 +9,7 @@ from agent.types import AgentContext, HistoryEntry, AgentTool
 from agent.loop import run_loop
 from agent.output_mode import emit_answer, emit_error, is_valid_mode
 
-comptime VERSION = "1.1.0"
+comptime VERSION = "1.2.0"
 
 
 def print_usage():
@@ -58,12 +58,36 @@ def _build_context(args: CliArgs) raises -> AgentContext:
     return AgentContext(sys_prompt, tools^, args.model.copy())
 
 
+def _resolve_or_new_session(session_arg: String) raises -> String:
+    """If session_arg is empty → new session id; otherwise resolve prefix → full id."""
+    var sm = Python.import_module("agent.session_manager")
+    var sr = Python.import_module("agent.session_resolver")
+    if len(session_arg) == 0:
+        return String(sm.new_session_id())
+    try:
+        return String(sr.resolve_session_id(session_arg))
+    except:
+        print("mojopi: warning: could not resolve --session", session_arg, "— starting new session")
+        return String(sm.new_session_id())
+
+
 def _run_interactive(args: CliArgs) raises:
     var builtins = Python.import_module("builtins")
     var repl = Python.import_module("cli.repl_helper")
+    var sm = Python.import_module("agent.session_manager")
     print(String(repl.welcome_banner(VERSION)))
 
     var ctx = _build_context(args)
+    var session_id = _resolve_or_new_session(args.session)
+
+    # Rehydrate existing history count, if any, so users know they're resuming.
+    var n_prior = Int(py=sm.session_message_count(session_id))
+    var py_sid = Python.import_module("builtins").str(session_id)
+    var short_id = String(py_sid[:8])
+    if n_prior > 0:
+        print("(resumed session ", short_id, " with ", n_prior, " prior messages)")
+    else:
+        print("(new session ", short_id, ")")
 
     while True:
         print("")
@@ -78,6 +102,7 @@ def _run_interactive(args: CliArgs) raises:
             print("  /clear                 clear screen")
             print("  /version               print version")
             print("  /file <path>           load file contents into next message")
+            print("  /session               print current session id")
             print("  anything else          send to agent")
             continue
         if stripped == "/clear":
@@ -86,6 +111,9 @@ def _run_interactive(args: CliArgs) raises:
         if stripped == "/version":
             var v = get_max_version()
             print("mojopi", VERSION, "/ max:", v)
+            continue
+        if stripped == "/session":
+            print("session:", session_id)
             continue
         if stripped.startswith("/file "):
             var py_stripped = Python.import_module("builtins").str(stripped)
@@ -97,7 +125,12 @@ def _run_interactive(args: CliArgs) raises:
                 print("could not read file:", path)
                 continue
 
+        # v1.2: persist the user turn before dispatching so crashes during
+        # generation don't lose the prompt.
+        _ = sm.save_turn(session_id, sm.HistoryDict("user", line))
+
         var reply = run_loop(line, ctx, args.model, args.max_new_tokens)
+        _ = sm.save_turn(session_id, sm.HistoryDict("assistant", reply))
         _ = repl.render_response(reply)
 
 

@@ -167,6 +167,13 @@ def run_loop(
 
         fire_event(String("message_end"), String("{}"))
 
+        # v1.2: strip reasoning-model <think>...</think> blocks before parsing.
+        try:
+            var thinking_mod = Python.import_module("agent.thinking")
+            response_text = String(thinking_mod.strip_thinking_text(response_text))
+        except:
+            pass  # module absent or strip failed — carry on with raw text
+
         # Extract tool calls
         var tool_calls = extract_tool_calls(response_text)
 
@@ -191,5 +198,21 @@ def run_loop(
                 tc.name,
             ))
 
-    # Iteration cap hit
-    return String("[agent: max tool iterations reached]")
+    # v1.2: Iteration cap hit — produce a human-readable summary of state
+    # instead of the old placeholder string.
+    try:
+        var summary_mod = Python.import_module("agent.turn_summary")
+        var builtins = Python.import_module("builtins")
+        var py_history = builtins.list()
+        for i in range(len(history)):
+            var h = history[i].copy()
+            var d = builtins.dict()
+            d["role"] = h.role
+            d["content"] = h.content
+            d["tool_call_id"] = h.tool_call_id
+            d["tool_name"] = h.tool_name
+            _ = py_history.append(d)
+        var summary = summary_mod.summarize_turn_cap(py_history, MAX_TOOL_ITERATIONS)
+        return String(summary)
+    except:
+        return String("[agent: max tool iterations reached]")
