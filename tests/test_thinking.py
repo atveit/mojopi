@@ -113,3 +113,34 @@ def test_preserves_tool_call_tags():
     r = strip_thinking(text)
     assert "<tool_call>" in r.visible
     assert "planning" in r.thinking
+
+
+def test_gemma_channel_thought_stripped():
+    from agent.thinking import strip_thinking
+    text = "<|channel>thought\nLet me plan.<channel|>The answer is 4."
+    r = strip_thinking(text)
+    assert "Let me plan" not in r.visible
+    assert "The answer is 4." in r.visible
+    assert "Let me plan" in r.thinking
+
+
+def test_gemma_channel_with_tool_call():
+    """Gemma's channel tag before a tool_call — both should be extracted correctly."""
+    from agent.thinking import strip_thinking
+    text = '<|channel>thought\nNeed to read a file.<channel|><tool_call>{"name":"read"}</tool_call>'
+    r = strip_thinking(text)
+    assert "Need to read" in r.thinking
+    assert "<tool_call>" in r.visible
+
+
+def test_gemma_channel_multiline():
+    from agent.thinking import strip_thinking
+    text = """<|channel>thought
+Line 1 of reasoning
+Line 2 of reasoning
+<channel|>
+The final answer."""
+    r = strip_thinking(text)
+    assert "Line 1" in r.thinking
+    assert "Line 2" in r.thinking
+    assert "final answer" in r.visible

@@ -184,9 +184,11 @@ def run_loop(
         # Append assistant message to history
         history.append(HistoryEntry(String("assistant"), response_text))
 
-        # Execute each tool call and append results
+        # Execute each tool call. Parallel dispatch lives in agent.parallel_loop
+        # (v1.3) but calling a Mojo function from Python requires a shim that
+        # is not yet built — v1.4 will wire it. Users can call the Python
+        # module directly for now.
         for i in range(len(tool_calls)):
-            # W3: Check abort before each tool call.
             if is_aborted():
                 return String("[aborted during tool execution]")
             var tc = tool_calls[i].copy()

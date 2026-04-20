@@ -22,6 +22,8 @@ _PATTERNS = [
     re.compile(r"<thinking>(.*?)</thinking>", re.DOTALL | re.IGNORECASE),
     re.compile(r"<\|thinking\|>(.*?)<\|/thinking\|>", re.DOTALL | re.IGNORECASE),
     re.compile(r"```thinking\n(.*?)```", re.DOTALL | re.IGNORECASE),
+    # Gemma 4 family: <|channel>thought\n...<channel|>
+    re.compile(r"<\|channel>thought\s*(.*?)<channel\|>", re.DOTALL | re.IGNORECASE),
 ]
 
 

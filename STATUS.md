@@ -6,6 +6,46 @@ See **[PLAN.md](PLAN.md)** for the full 9-phase crawl/walk/run roadmap.
 
 ---
 
+## 2026-04-20 — 🖥️ v1.3.0: Mac-native UX + loop improvements
+
+### TLDR
+- 🖥️ **Mac menu bar app** (rumps): 🤖 in the tray → "Ask mojopi…" → Cocoa input → Cocoa alert with answer. `src/coding_agent/ui/menubar/`
+- 📱 **SwiftUI native Mac app**: Xcode 26.1.1 / Swift Package / macOS 14+ target; chat pane + input; ⌘N new session, ⌘K clear; parses `--mode json` JSONL events. `apps/mojopi-mac/` — builds cleanly with `swift build -c release` (204 KB arm64 binary)
+- 🧭 **Expanded slash commands**: `/model <repo>`, `/history [N]`, `/save <path>` (markdown export), `/fork`, `/tokens`, `/memory list/add/forget` — 18 tests, wired into REPL
+- ⚡ **Parallel tool dispatch module**: `agent.parallel_loop.maybe_parallel_dispatch` — opt-in from Python; 12 tests show 3× speedup on 3 slow read-only tools
+- 🧩 **Gemma-family thinking tag stripped**: `<|channel>thought...<channel|>` joins `<think>`, `<thinking>`, `<|thinking|>`, `` ```thinking `` in `agent/thinking.py`
+- 😌 **Friendly MLX error messages**: `max_brain/error_messages.friendly_mlx_error()` translates pydantic + HF errors into actionable hints
+- 🔎 **Session search**: `mojopi search "auth token"` — full-text substring over all `~/.pi/sessions/*/transcript.jsonl`; 14 tests
+- ⚙️ **.env loader**: cwd `.env` + `~/.pi/.env` auto-exported before CliArgs; 17 tests
+- 📥 **`scripts/fetch_model.sh`**: preflight + mlx-lm download, 0/1/2/3 exit codes
+- 📊 **Real speculative-decoding benchmark**: 3B Llama + 1B draft; 0.92× speedup on this pair — scaffolding works; positive speedup needs a better draft pairing
+- 🧪 **505 tests collected** (498 pass + 7 skipped): up from 431 at v1.2.0 — **+74 tests**
+- 🏷️ `v1.3.0` tagged and pushed
+
+### 8 parallel agents, zero file conflicts
+| Agent | Module | Tests |
+|-------|--------|-------|
+| A Menubar | `src/coding_agent/ui/menubar/` | 7 |
+| B SwiftUI | `apps/mojopi-mac/` | (swift build passes) |
+| C Slash commands | `src/cli/slash_commands.py` | 18 |
+| D Parallel dispatch | `src/agent/parallel_loop.py` | 12 |
+| E Gemma + errors | `src/agent/thinking.py`+, `src/max_brain/error_messages.py` | 3 + 10 |
+| F Search | `src/cli/search.py` | 14 |
+| G Env + fetch | `src/cli/env_loader.py`, `scripts/fetch_model.sh` | 17 |
+| H Speculative bench | `scripts/bench_speculative.py` | 6 |
+
+### Wired into main.mojo + loop.mojo
+- `main.mojo`: VERSION 1.3.0, /help shows slash_commands.help_text, all slash commands dispatched via cli.slash_commands, env loader runs before parse_args, `mojopi search <query>` subcommand
+- `loop.mojo`: no new wiring beyond v1.2 (parallel dispatch stays opt-in from Python; Mojo→Python function passing shim lands in v1.4)
+
+### Commit trail
+`dc87a00` docs/Gemma verify · `b9823c5` v1.3 plan · (this commit) v1.3.0 with 8 new modules
+
+### Next up (v1.4)
+Token streaming in print mode, TUI auto-launch, Mojo→Python function-pointer shim so parallel tool dispatch can be wired into loop.mojo, SwiftUI app signed and bundled as `.app`, `scripts/bench.py` run against Gemma 4 for real tok/s + cold-start numbers.
+
+---
+
 ## 2026-04-20 — 🎯 v1.2.0: pi-mono functional parity
 
 ### TLDR

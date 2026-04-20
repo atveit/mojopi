@@ -9,7 +9,7 @@ from agent.types import AgentContext, HistoryEntry, AgentTool
 from agent.loop import run_loop
 from agent.output_mode import emit_answer, emit_error, is_valid_mode
 
-comptime VERSION = "1.2.0"
+comptime VERSION = "1.3.0"
 
 
 def print_usage():
@@ -79,6 +79,8 @@ def _run_interactive(args: CliArgs) raises:
 
     var ctx = _build_context(args)
     var session_id = _resolve_or_new_session(args.session)
+    var current_model = args.model.copy()
+    var current_max_tokens = args.max_new_tokens
 
     # Rehydrate existing history count, if any, so users know they're resuming.
     var n_prior = Int(py=sm.session_message_count(session_id))
@@ -98,11 +100,13 @@ def _run_interactive(args: CliArgs) raises:
         if stripped == "/exit" or stripped == "/quit":
             return
         if stripped == "/help":
+            var sc_help = Python.import_module("cli.slash_commands")
             print("  /exit, /quit           exit")
             print("  /clear                 clear screen")
             print("  /version               print version")
             print("  /file <path>           load file contents into next message")
             print("  /session               print current session id")
+            print(String(sc_help.help_text()))
             print("  anything else          send to agent")
             continue
         if stripped == "/clear":
@@ -125,17 +129,53 @@ def _run_interactive(args: CliArgs) raises:
                 print("could not read file:", path)
                 continue
 
+        # v1.3: Dispatch expanded slash commands via cli.slash_commands.
+        if stripped.startswith("/"):
+            var sc = Python.import_module("cli.slash_commands")
+            var state = sc.SlashState(session_id, current_model, ctx.system_prompt)
+            var result = sc.dispatch_slash(stripped, state)
+            if Bool(result.handled):
+                var output_str = String(result.output)
+                if len(output_str) > 0:
+                    print(output_str)
+                var new_sid = result.new_session_id
+                var is_none = Python.evaluate("lambda x: x is None")
+                if not Bool(is_none(new_sid)):
+                    session_id = String(new_sid)
+                var new_model = result.new_model
+                if not Bool(is_none(new_model)):
+                    current_model = String(new_model)
+                continue
+
         # v1.2: persist the user turn before dispatching so crashes during
         # generation don't lose the prompt.
         _ = sm.save_turn(session_id, sm.HistoryDict("user", line))
 
-        var reply = run_loop(line, ctx, args.model, args.max_new_tokens)
+        var reply = run_loop(line, ctx, current_model, current_max_tokens)
         _ = sm.save_turn(session_id, sm.HistoryDict("assistant", reply))
         _ = repl.render_response(reply)
 
 
 def main() raises:
     var raw_args = argv_to_list()
+
+    # v1.3: load .env files into os.environ BEFORE arg parsing + env defaults.
+    try:
+        var env_mod = Python.import_module("cli.env_loader")
+        _ = env_mod.load_dotenv()
+    except:
+        pass  # .env loading is best-effort
+
+    # v1.3: `mojopi search <query>` subcommand — short-circuit before CliArgs.
+    if len(raw_args) >= 2 and raw_args[1] == "search":
+        if len(raw_args) < 3:
+            print("usage: mojopi search <query>")
+            return
+        var search = Python.import_module("cli.search")
+        var query = raw_args[2].copy()
+        var hits = search.search_sessions(query)
+        print(String(search.format_results(hits, query)))
+        return
 
     var res = parse_args(raw_args)
     if len(res.error) > 0:

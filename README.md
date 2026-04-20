@@ -7,11 +7,19 @@ on-device LLM inference, keeping pi-mono's ReAct loop, tool suite, and session
 format intact. No remote API calls, no telemetry, no cloud dependency for
 inference.
 
-## Status (2026-04-20) — 🎯 v1.2.0 + empirical run-tier verified with Gemma 4
+## Status (2026-04-20) — 🖥️ v1.3.0 — Mac-native UX + loop improvements
 
-- ✅ **Real tool-calling proven end-to-end** — Gemma 4 e4b emits `<tool_call>{"name": "read", ...}</tool_call>` tags that mojopi's extractor parses; full read→summarize chain works on a real file → [docs/MODEL_VERIFICATION.md](docs/MODEL_VERIFICATION.md)
-- 🏗️ **Crawl → Walk → Run test pyramid** — 6 crawl (binary smoke) + 12 walk (multi-turn tool chains, mocked LLM) + 6 run (real Gemma 4 on Metal) integration tests
-- 🎯 **v1.0 → v1.1 → v1.2 in one day** — full ReAct loop + 4 beyond-the-port features + 7 functional gaps closed → [docs/V1.2_GAP_CLOSURE.md](docs/V1.2_GAP_CLOSURE.md)
+- 🖥️ **Mac menu bar app** — 🤖 in the tray → "Ask mojopi…" → Cocoa input → answer in an alert (`src/coding_agent/ui/menubar/`)
+- 📱 **SwiftUI native chat app** — Xcode 26.1.1 Swift Package at `apps/mojopi-mac/`; `swift build -c release` produces a 204 KB arm64 binary; ⌘N new session, ⌘K clear
+- 🧭 **Expanded slash commands** — `/model`, `/history`, `/save`, `/fork`, `/tokens`, `/memory list|add|forget` — 18 tests → [docs/INTERACTIVE.md](docs/INTERACTIVE.md)
+- 🔎 **Session search** — `mojopi search "auth token"` greps all session transcripts with snippet + role + timestamp
+- ⚙️ **.env auto-loaded** — `./​.env` + `~/.pi/.env` exported to `os.environ` before CliArgs
+- 📥 **`scripts/fetch_model.sh`** — preflight disk + mlx-lm download with exit-code semantics
+- ⚡ **Parallel tool dispatch module** — 3× speedup on read-only batches (opt-in from Python; loop wiring is v1.4)
+- 🧩 **Gemma `<|channel>thought<channel|>` stripped**; friendly error messages translate pydantic/HF exceptions
+- ✅ **Real tool-calling proven** — Gemma 4 e4b emits proper `<tool_call>` tags → [docs/MODEL_VERIFICATION.md](docs/MODEL_VERIFICATION.md)
+- 🏗️ **Crawl → Walk → Run test pyramid** — 6 crawl + 12 walk + 6 run integration tests against real Gemma 4
+- 🎯 **v1.0 → v1.1 → v1.2 → v1.3 in one day** — full ReAct loop + 4 beyond-the-port features + 7 functional gaps closed + Mac UX → [docs/V1.3_PLAN.md](docs/V1.3_PLAN.md)
 - 📂 **Session resume actually works** — `--session <uuid-prefix>` resolves, rehydrates, persists each turn to `~/.pi/sessions/<id>/transcript.jsonl`
 - 🧩 **Reasoning models unblocked** — `<think>`, `<thinking>`, `<|thinking|>` blocks stripped before tool-call extraction in `loop.mojo`
 - 📊 **Turn-cap summarization** — no more `"[max tool iterations reached]"` placeholder; agent produces a readable summary of request + tool log + partial findings
@@ -20,7 +28,7 @@ inference.
 - 💾 **KV cache persistence** — `~/.pi/sessions/<uuid>/kv_cache/` save 18 ms / load 1.3 ms
 - 🗜️ **TurboQuant KV quantization** — orthogonal-rotation + `mx.quantize`; **3.56× @ 4-bit**, **6.4× @ 2-bit** measured on M2 Max
 - ⚙️ **MLX Metal fast-path** — 68 tok/s on Qwen3.5-4B-4bit, 192 tok/s on Qwen3-0.6B-4bit, TTFT 281 ms on Gemma 4 e4b (4–12× vs MAX CPU) → [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
-- 🧪 **405 fast + 26 slow = 431 tests total** — fast suite ~70 s on M2 Max; slow tier runs real MLX inference (skipped in CI default)
+- 🧪 **505 tests total (498 pass + 7 skipped)** — up from 431 at v1.2.0; fast suite ~195 s on M2 Max; slow tier runs real MLX inference
 - 🔌 **Extension API** — `register_tool`, `register_command`, `on(event)` auto-discovered from `~/.pi/agent/extensions/*.py` → [docs/EXTENSIONS.md](docs/EXTENSIONS.md)
 - 🗂️ **Session v3** — 7-type JSONL with tree builder, compaction, branching → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 💬 **Interactive REPL** — `/session`, `/file`, `/help`, `/clear`, `/version` slash commands, rich markdown rendering → [docs/INTERACTIVE.md](docs/INTERACTIVE.md)

@@ -5,6 +5,46 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.3.0] — 2026-04-20
+
+### Added
+- **Mac menu bar app** (`src/coding_agent/ui/menubar/menubar.py`): rumps-based
+  tray icon with Ask/Recent/Settings/Quit menu. 7 tests.
+- **SwiftUI native Mac app** (`apps/mojopi-mac/`): Swift Package executable for
+  macOS 14+; chat UI spawns `mojopi --mode json` and parses JSONL events. Builds
+  with `swift build -c release` (204 KB arm64 binary).
+- **Expanded slash commands** (`src/cli/slash_commands.py`): `/model`,
+  `/history`, `/save`, `/fork`, `/tokens`, `/memory list/add/forget`. 18 tests.
+  Wired into `main.mojo` REPL.
+- **Parallel tool dispatch module** (`src/agent/parallel_loop.py`):
+  `maybe_parallel_dispatch()` auto-parallelizes read-only tool batches. 12 tests.
+- **Gemma thinking tag support** (`src/agent/thinking.py`): adds
+  `<|channel>thought...<channel|>` pattern. 3 new tests.
+- **Friendly MLX error messages** (`src/max_brain/error_messages.py`):
+  `friendly_mlx_error(exc)` translates pydantic/HF errors into actionable
+  hints. 10 tests.
+- **Session search** (`src/cli/search.py`): `mojopi search "auth token"` —
+  full-text over all session transcripts with snippet + role + timestamp.
+  14 tests.
+- **.env loader** (`src/cli/env_loader.py`): cwd + `~/.pi/.env` exported into
+  `os.environ` before arg parsing. 17 tests.
+- **Model fetch helper** (`scripts/fetch_model.sh`): preflight disk + mlx-lm
+  download, 0/1/2/3 exit codes.
+- **Real speculative-decoding benchmark** (`scripts/bench_speculative.py`):
+  3B Llama + 1B draft; reports actual speedup (observed 0.92× on this pair,
+  scaffolding verified). 6 fast tests + 1 slow.
+- `docs/V1.3_PLAN.md` — 8-agent parallelization plan.
+
+### Test counts
+**505 tests collected** (498 pass + 7 skipped); up from 431 at v1.2.0 (**+74 tests**).
+
+### Not wired (opt-in from Python for now)
+- Parallel tool dispatch into `loop.mojo` — requires a Mojo→Python function-pointer shim; tracked for v1.4.
+- Streaming token output in print mode — tracked for v1.4.
+- SwiftUI app bundled/signed as `.app` — ships as `swift build` binary in v1.3.
+
+---
+
 ## [1.2.0] — 2026-04-20
 
 ### Added
