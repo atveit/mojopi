@@ -7,8 +7,10 @@ on-device LLM inference, keeping pi-mono's ReAct loop, tool suite, and session
 format intact. No remote API calls, no telemetry, no cloud dependency for
 inference.
 
-## Status (2026-04-20) — 🎯 v1.2.0 — functional parity with pi-mono
+## Status (2026-04-20) — 🎯 v1.2.0 + empirical run-tier verified with Gemma 4
 
+- ✅ **Real tool-calling proven end-to-end** — Gemma 4 e4b emits `<tool_call>{"name": "read", ...}</tool_call>` tags that mojopi's extractor parses; full read→summarize chain works on a real file → [docs/MODEL_VERIFICATION.md](docs/MODEL_VERIFICATION.md)
+- 🏗️ **Crawl → Walk → Run test pyramid** — 6 crawl (binary smoke) + 12 walk (multi-turn tool chains, mocked LLM) + 6 run (real Gemma 4 on Metal) integration tests
 - 🎯 **v1.0 → v1.1 → v1.2 in one day** — full ReAct loop + 4 beyond-the-port features + 7 functional gaps closed → [docs/V1.2_GAP_CLOSURE.md](docs/V1.2_GAP_CLOSURE.md)
 - 📂 **Session resume actually works** — `--session <uuid-prefix>` resolves, rehydrates, persists each turn to `~/.pi/sessions/<id>/transcript.jsonl`
 - 🧩 **Reasoning models unblocked** — `<think>`, `<thinking>`, `<|thinking|>` blocks stripped before tool-call extraction in `loop.mojo`
@@ -17,14 +19,29 @@ inference.
 - ⚡ **Speculative decoding** — mlx-lm `draft_model=` wired with graceful fallback; 1.5–2× speedup ready when a 1B draft is downloaded
 - 💾 **KV cache persistence** — `~/.pi/sessions/<uuid>/kv_cache/` save 18 ms / load 1.3 ms
 - 🗜️ **TurboQuant KV quantization** — orthogonal-rotation + `mx.quantize`; **3.56× @ 4-bit**, **6.4× @ 2-bit** measured on M2 Max
-- ⚙️ **MLX Metal fast-path** — 68 tok/s on Qwen3.5-4B-4bit, 192 tok/s on Qwen3-0.6B-4bit (4–12× vs MAX CPU) → [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
-- 🧪 **355 Python + 12 Mojo tests** — full suite in ~70 s on M2 Max via `pixi run test`; +91 tests since v1.1.0
+- ⚙️ **MLX Metal fast-path** — 68 tok/s on Qwen3.5-4B-4bit, 192 tok/s on Qwen3-0.6B-4bit, TTFT 281 ms on Gemma 4 e4b (4–12× vs MAX CPU) → [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
+- 🧪 **405 fast + 26 slow = 431 tests total** — fast suite ~70 s on M2 Max; slow tier runs real MLX inference (skipped in CI default)
 - 🔌 **Extension API** — `register_tool`, `register_command`, `on(event)` auto-discovered from `~/.pi/agent/extensions/*.py` → [docs/EXTENSIONS.md](docs/EXTENSIONS.md)
 - 🗂️ **Session v3** — 7-type JSONL with tree builder, compaction, branching → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - 💬 **Interactive REPL** — `/session`, `/file`, `/help`, `/clear`, `/version` slash commands, rich markdown rendering → [docs/INTERACTIVE.md](docs/INTERACTIVE.md)
 - 📤 **JSON/RPC output modes** — `--mode json` for streaming JSONL, `--mode rpc` for LSP-style editor integration
 - 📦 **Packaging** — conda recipe + launcher for `pixi global install mojopi` → [docs/INSTALL.md](docs/INSTALL.md)
 - 📜 **Release history** → [CHANGELOG.md](CHANGELOG.md) · [docs/V1_RELEASE.md](docs/V1_RELEASE.md) · [STATUS.md](STATUS.md) · [PLAN.md](PLAN.md)
+
+### Preferred model — Gemma 4 e4b
+
+```bash
+# Download once (~2.3 GB, ~3 min on typical broadband)
+pixi run python -c "from mlx_lm import load; load('mlx-community/gemma-4-e4b-it-4bit')"
+
+# Run mojopi with it
+pixi run run -- -p "What does README.md contain? Use the read tool." \
+    --model mlx-community/gemma-4-e4b-it-4bit
+```
+
+See [docs/MODEL_VERIFICATION.md](docs/MODEL_VERIFICATION.md) for why Gemma 4 beats
+Qwen3/Llama 3.2 for tool-use workflows (short version: Gemma 4 emits the tag format
+natively without prompt-engineering hacks).
 
 ## Prerequisites
 
