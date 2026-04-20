@@ -7,12 +7,21 @@ on-device LLM inference, keeping pi-mono's ReAct loop, tool suite, and session
 format intact. No remote API calls, no telemetry, no cloud dependency for
 inference.
 
-## Status
+## Status (2026-04-20) — 🚀 v1.1.0
 
-🏁 **Run tier in progress (2026-04-19)** — Walk tier closed (100 tests, full ReAct loop).
-Run tier R1 (TUI, extension API, print hardening) and R2 (MAX pipeline fix, benchmarks,
-structured output) complete. R3 (distribution, JSON/RPC modes, v1.0) in progress.
-See [STATUS.md](STATUS.md) and [PLAN.md](PLAN.md).
+- 🎉 **v1.0 → v1.1 in one day** — full ReAct agent loop + 4 beyond-the-port features
+- 🧠 **Semantic episodic memory** — local vector store, mlx-lm Metal embeddings, LLM-driven fact extraction → [docs/V1.1_FEATURES.md](docs/V1.1_FEATURES.md)
+- ⚡ **Speculative decoding** — mlx-lm `draft_model=` wired; 1.5–2× speedup ready when a 1B draft is downloaded
+- 💾 **KV cache persistence** — `~/.pi/sessions/<uuid>/kv_cache/` save 18 ms / load 1.3 ms for resumable sessions
+- 🗜️ **TurboQuant KV quantization** — orthogonal-rotation + `mx.quantize`; **3.56× @ 4-bit**, **6.4× @ 2-bit** measured on M2 Max
+- 🧪 **264 unit tests + 9 empirical** — full suite in ~70 s on M2 Max via `pixi run test`
+- ⚙️ **MLX Metal fast-path** — 68 tok/s on Qwen3.5-4B-4bit, 192 tok/s on Qwen3-0.6B-4bit (4–12× vs MAX CPU)
+- 🔌 **Extension API** — `register_tool`, `register_command`, `on(event)` auto-discovered from `~/.pi/agent/extensions/*.py`
+- 🗂️ **Session v3** — 7-type JSONL with tree builder, compaction, branching → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 💬 **Interactive REPL** — slash commands (`/help`, `/file`, `/clear`, `/version`), rich markdown rendering → [docs/INTERACTIVE.md](docs/INTERACTIVE.md)
+- 📤 **JSON/RPC output modes** — `--mode json` for streaming JSONL, `--mode rpc` for LSP-style editor integration
+- 📦 **Packaging** — conda recipe + launcher for `pixi global install mojopi` → [docs/INSTALL.md](docs/INSTALL.md)
+- 📜 **Release history** → [CHANGELOG.md](CHANGELOG.md) · [docs/V1_RELEASE.md](docs/V1_RELEASE.md) · [STATUS.md](STATUS.md) · [PLAN.md](PLAN.md)
 
 ## Prerequisites
 
