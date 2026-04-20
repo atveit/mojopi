@@ -5,6 +5,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.1.0] — 2026-04-20
+
+### Added
+- **Semantic episodic memory** (`src/coding_agent/memory/`) — JSONL vector store,
+  mlx-lm Metal embeddings, bag-of-words fallback, LLM-driven fact extraction,
+  top-k cosine retrieval. 17 unit + 2 empirical tests.
+- **Speculative decoding** (`src/max_brain/speculative.py`) — mlx-lm
+  `draft_model=` integration with graceful fallback. 12 unit + 2 empirical tests.
+- **KV cache persistence** (`src/max_brain/kv_cache.py`) — per-layer safetensors
+  under `~/.pi/sessions/<uuid>/kv_cache/`. 13 unit + 2 empirical tests.
+- **TurboQuant** (`src/max_brain/turboquant.py`) — MLX `mx.quantize` with
+  deterministic orthogonal rotation; 2/3/4/8-bit modes. Empirical 3.56×
+  reduction at 4-bit, 6.4× at 2-bit. 12 unit + 3 empirical tests.
+- `tests/test_v1_1_empirical.py` — 9 `@pytest.mark.slow` empirical tests
+  (7 pass, 2 skip when real MLX cache shapes don't align with group_size).
+- `docs/V1.1_FEATURES.md` — full design, API, and measured numbers.
+- `docs/V1.1_AMBITIOUS.md` — planning document for the four-agent parallel dispatch.
+- Test count: **264 unit + 9 empirical** (up from 210 at v1.0.1).
+
+---
+
+## [1.0.1] — 2026-04-20
+
+### Added
+- `cli/repl_helper.py` — Rich markdown rendering, env var defaults
+  (`MOJOPI_MODEL`, `MOJOPI_MAX_NEW_TOKENS`), `/file <path>` slash command.
+
+---
+
+## [1.0.0] — 2026-04-20
+
+### Added
+- Full ReAct loop wired into `main.mojo` (print + interactive REPL)
+- MLX Metal backend as arm64 default (`src/max_brain/mlx_backend.py`)
+- Pinned deps: `max==26.2.0`, `python==3.12.13`, `textual==8.2.4`
+- Docs: ARCHITECTURE, INTERACTIVE, BENCHMARKS, V1_RELEASE
+
+---
+
 ## [Unreleased] — v1.0.0-rc
 
 ### Added

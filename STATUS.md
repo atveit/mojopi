@@ -6,6 +6,25 @@ See **[PLAN.md](PLAN.md)** for the full 9-phase crawl/walk/run roadmap.
 
 ---
 
+## 2026-04-20 — 🚀 v1.1.0: beyond-the-port features
+
+### TLDR
+- 🧠 **Semantic episodic memory** — local vector store over `~/.pi/memory/*.jsonl` with mlx-lm Metal embeddings (bag-of-words fallback); LLM-driven fact extraction from sessions; top-k cosine retrieval in 0.09 ms over 5 entries
+- ⚡ **Speculative decoding** — mlx-lm `draft_model=` wired with graceful fallback; benchmark harness reports baseline vs speculative speedup
+- 💾 **KV cache persistence** — `make_prompt_cache` → safetensors on disk at `~/.pi/sessions/<uuid>/kv_cache/`; 8-layer 128 KB cache saves in 18 ms, loads in 1.3 ms
+- 🗜️ **TurboQuant** — random-orthogonal-rotation + MLX `mx.quantize`; **3.56× reduction at 4-bit (MAE 7% of RMS)**, **6.4× at 2-bit**, composes with persistence so a 60 MB 20-turn cache drops to ~15 MB on disk
+- 🧪 **264 unit tests + 7 empirical** (9 empirical total, 2 skipped on real-cache shape mismatch)
+- 📝 Full design + numbers in [docs/V1.1_FEATURES.md](docs/V1.1_FEATURES.md); parallelization plan in [docs/V1.1_AMBITIOUS.md](docs/V1.1_AMBITIOUS.md)
+- 🏷️ `v1.1.0` tagged and pushed
+
+### What shipped (commit trail)
+`4353124` v1.0.0 · `ea0a148` v1.0.1 polish · (this commit) v1.1.0 with 4 new features in 4 parallel agents
+
+### Next up (v1.2)
+Wire /memory slash command into REPL; quantize+persist composition in `loop.mojo` compaction path; Llama-3.2-1B draft model download script for empirical speculative speedup measurement.
+
+---
+
 ## 2026-04-20 — 🎉 v1.0.0 shipped
 
 ### TLDR

@@ -9,7 +9,7 @@ from agent.types import AgentContext, HistoryEntry, AgentTool
 from agent.loop import run_loop
 from agent.output_mode import emit_answer, emit_error, is_valid_mode
 
-comptime VERSION = "1.0.1"
+comptime VERSION = "1.1.0"
 
 
 def print_usage():
