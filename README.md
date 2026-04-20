@@ -54,87 +54,155 @@ natively without prompt-engineering hacks).
 ## Prerequisites
 
 - [pixi](https://pixi.sh) installed (`curl -fsSL https://pixi.sh/install.sh | bash`).
-- GGUF weights for Llama-3.1-8B-Instruct. Reference build:
-  [`modularai/Llama-3.1-8B-Instruct-GGUF`](https://huggingface.co/modularai/Llama-3.1-8B-Instruct-GGUF)
-  (Q4_K_M recommended). Drop the `.gguf` into `models/` — it is gitignored.
-- macOS on Apple Silicon (`osx-arm64`) or Linux x86_64 (`linux-64`).
+- macOS 14+ on Apple Silicon (`osx-arm64`) or Linux x86_64 (`linux-64`).
+- A tool-capable MLX model. **Recommended: Gemma 4 e4b** (~2.3 GB, verified).
+  Fetch once with the helper:
+  ```bash
+  scripts/fetch_model.sh gemma-4-e4b-it-4bit
+  ```
+- For the SwiftUI app: Xcode 14+ (macOS 14+ SDK).
 
 ## Quickstart
 
 ```bash
-# Resolve the Mojo 26.2 + MAX + Python 3.12 environment.
+# 1. Resolve the Mojo 26.2 + MAX + Python 3.12 + MLX environment.
 pixi install
 
-# Run the test suite — 22 tests (4 formatter + 5 read + 10 types + 3 interop).
+# 2. Run the fast test suite (498 tests, ~195 s on M2 Max).
 pixi run test
 
-# C1 smoke gate: Mojo→Python→MAX bridge prints a version string.
+# 3. C1 smoke gate — Mojo→Python→MAX bridge prints a version string.
 pixi run smoke
 
-# C3 one-shot demo — first run downloads ~4.5GB of Llama-3.1-8B GGUF.
-pixi run bash scripts/run.sh -p "What is 2+2? Answer briefly."
+# 4. One-shot prompt (downloads the model on first run).
+scripts/fetch_model.sh gemma-4-e4b-it-4bit     # ~2.3 GB, once
+pixi run bash scripts/run.sh -p "What is 2+2? Answer briefly." \
+    --model mlx-community/gemma-4-e4b-it-4bit
 
-# Override the model / cap:
-pixi run bash scripts/run.sh -p "hi" --model meta-llama/Llama-3.2-1B-Instruct --max-new-tokens 40
+# 5. Interactive REPL — /help lists all slash commands.
+pixi run bash scripts/run.sh --model mlx-community/gemma-4-e4b-it-4bit
+```
+
+Set defaults once in `.env` (or `~/.pi/.env`) so you don't have to pass
+`--model` every time:
+
+```
+MOJOPI_MODEL=mlx-community/gemma-4-e4b-it-4bit
+MOJOPI_MAX_NEW_TOKENS=256
+MOJOPI_AUTO_MEMORY=1
 ```
 
 ## Examples
 
 ```bash
+# Interactive chat
+pixi run bash scripts/run.sh
+
 # One-shot print mode
-pixi run run -- -p "Explain list comprehensions in one sentence"
+pixi run bash scripts/run.sh -p "Explain list comprehensions in one sentence"
 
-# Streaming JSON (for editor integrations)
-pixi run run -- --mode json -p "Hello"
+# Streaming JSON output for editor integrations
+pixi run bash scripts/run.sh -p "Hello" --mode json
 
-# Read prompt from file
-pixi run run -- -p @my_prompt.txt
+# Read prompt from file (or pipe via stdin)
+pixi run bash scripts/run.sh -p @my_prompt.txt
 
-# Use a custom extension
-pixi run run -- --extension my_ext.py -p "use my tool"
+# Full-text search across past sessions
+pixi run bash scripts/run.sh search "auth token"
+
+# Mac menu bar app (tray icon — experimental)
+pixi run python -m coding_agent.ui.menubar.menubar
+
+# SwiftUI native Mac app (requires Xcode)
+(cd apps/mojopi-mac && swift build -c release)
+./apps/mojopi-mac/.build/release/mojopi-mac
 ```
 
 ### Why `bash scripts/run.sh` and not `pixi run run -- …`?
 
-Pixi 0.67 does not forward trailing arguments to string tasks. The shim
-script sets `PYTHONPATH=src` and `mojo run -I src` so the Python interop
-module (`max_brain.pipeline`) and Mojo modules resolve, then forwards
-`"$@"` to the Mojo binary.
+Pixi does not forward trailing arguments to string tasks. The shim script
+sets `PYTHONPATH=src` and `mojo run -I src` so the Python interop modules
+and Mojo packages resolve, then forwards `"$@"` to the Mojo binary.
 
-### Apple Silicon notes
+### Apple Silicon performance
 
-MAX 26.2's sampling graph uses a `topk` kernel that requires an
-`external memory` feature Apple's Metal GPU does not expose. The
-generation path is pinned to `--devices cpu` in
-[`src/max_brain/pipeline.py`](src/max_brain/pipeline.py). Expect ~1–3 tok/s
-on an M-series CPU with Llama-3.1-8B Q4_K. GPU-accelerated generation is
-a MAX upstream concern; Linux + CUDA should work without the CPU pin.
+MAX 26.2's `topk` sampler hits an `external memory not supported on Apple
+GPU` constraint, so mojopi routes Apple Silicon through **MLX Metal** via
+[`src/max_brain/mlx_backend.py`](src/max_brain/mlx_backend.py) instead —
+cleanly 4–12× faster than MAX CPU. Measured on M2 Max:
+
+| Backend | Model | TTFT | Throughput |
+|---------|-------|------|------------|
+| MLX Metal | Gemma 4 e4b (4-bit) | 281 ms | ~40 tok/s |
+| MLX Metal | Qwen3-0.6B (4-bit) | 114 ms | 192 tok/s |
+| MLX Metal | Qwen3.5-4B (4-bit) | 298 ms | 68 tok/s |
+| MAX CPU   | Llama-3.1-8B Q4_K   | 1 950 ms | 15 tok/s |
+
+Linux + CUDA uses the MAX embedded path (unaffected by the Apple topk bug).
+See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for the full table and
+[docs/MODEL_VERIFICATION.md](docs/MODEL_VERIFICATION.md) for which models
+emit `<tool_call>` tags out of the box.
 
 ## Project layout
 
 ```
 mojopi/
-├── pixi.toml              # Mojo 26.2 + MAX + Python 3.12 manifest
-├── README.md              # this file
-├── AGENTS.md              # notes for future Claude agents
-├── .gitignore
-├── .github/               # CI workflows
-├── scripts/               # one-off developer scripts
+├── pixi.toml                     # Mojo 26.2 + MAX + Python 3.12 (+ pip-bootstrap MLX)
+├── README.md                     # this file
+├── AGENTS.md                     # notes for future Claude agents
+├── CHANGELOG.md · PLAN.md · STATUS.md
+├── apps/
+│   └── mojopi-mac/               # SwiftUI native Mac app (Swift Package)
+├── docs/                         # ARCHITECTURE, INTERACTIVE, BENCHMARKS,
+│                                 #   INSTALL, EXTENSIONS, V1.1_FEATURES,
+│                                 #   V1.2_GAP_CLOSURE, V1.3_PLAN, MODEL_VERIFICATION …
+├── scripts/                      # run, smoke, bench, bench_speculative,
+│                                 #   fetch_model, mojopi (conda launcher), …
 ├── src/
-│   ├── main.mojo          # entry point (CLI arg parse → agent loop)
-│   ├── ai/                # message types, streaming primitives
-│   ├── agent/             # AgentSession, AgentLoop, tool abstraction
+│   ├── main.mojo                 # CLI → env loader → slash commands → REPL / print
+│   ├── ai/                       # Message types
+│   ├── agent/
+│   │   ├── loop.mojo             # ReAct loop (abort/steering/think/summary)
+│   │   ├── types.mojo, tool_executor.mojo, hooks, steering, abort,
+│   │   ├── structured_output, output_mode, parallel_dispatch, parallel_loop,
+│   │   ├── session_manager, session_resolver, thinking, parse_retry,
+│   │   └── compaction_bridge, turn_summary
+│   ├── cli/
+│   │   ├── args.mojo, print_helper, repl_helper
+│   │   ├── slash_commands, search, env_loader
 │   ├── coding_agent/
-│   │   └── tools/         # read, bash, edit, write, grep, find, ls
-│   ├── max_brain/         # Python interop for MAX inference (GGUF, pipeline)
-│   └── prompt/            # system prompt + ChatML formatter
-└── tests/
-    └── fixtures/          # golden fixtures for tool-parity tests
+│   │   ├── tools/                # read, write, edit, bash, grep, find, ls
+│   │   ├── session/              # v3 JSONL store + tree builder
+│   │   ├── context/              # AGENTS.md walker + system prompt builder
+│   │   ├── compaction/           # 75% threshold summariser
+│   │   ├── skills/               # YAML-frontmatter skill loader
+│   │   ├── extensions/           # register_tool/command/event + discovery
+│   │   ├── memory/               # vector store + mlx embeddings + extraction
+│   │   ├── tui/                  # textual TUI (built, not auto-launched)
+│   │   └── ui/menubar/           # Mac menu bar app (rumps)
+│   ├── max_brain/
+│   │   ├── pipeline.py           # MAX entrypoint (MAXModelConfig)
+│   │   ├── mlx_backend.py        # MLX Metal fast-path (Apple Silicon default)
+│   │   ├── threaded_pipeline, gil_profiler,
+│   │   ├── speculative,          # mlx-lm draft_model= wiring
+│   │   ├── kv_cache,             # save/load prompt cache to disk
+│   │   ├── turboquant,           # 4-bit / 2-bit KV cache quantization
+│   │   └── error_messages        # friendly pydantic/HF translations
+│   └── prompt/                   # ChatML formatter (pre-W2; loop now inlines)
+├── tests/                        # 505 tests: unit + integration + end-to-end
+│   ├── test_integration_coverage.py   (38 tests — one per functional area)
+│   ├── test_walk_integration.py       (12 tests — multi-turn tool chains, mocked LLM)
+│   ├── test_run_integration.py        (6 tests — real Gemma 4 end-to-end)
+│   ├── test_end_to_end.py             (6 tests — binary + subprocess smoke)
+│   └── fixtures/                 # golden fixtures for tool-parity tests
+└── conda-recipe/                 # `pixi global install mojopi` recipe
 ```
 
-Domains above mirror the [pi-mono](https://github.com/badlogic/pi-mono) package
-split (`ai` → `agent` → `coding-agent`) with `max_brain/` added for the MAX
-pipeline glue. See [PLAN.md](PLAN.md) for the full 9-phase roadmap.
+Domains mirror [pi-mono](https://github.com/badlogic/pi-mono)'s package split
+(`ai → agent → coding_agent`) with `max_brain/` and `cli/` added, plus the
+Mac UI bits in `apps/` and `src/coding_agent/ui/`. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the component deep-dive and
+[PLAN.md](PLAN.md) for the original 9-phase roadmap (all phases closed at v1.0).
 
 ## Credits
 
