@@ -6,6 +6,31 @@ See **[PLAN.md](PLAN.md)** for the full 9-phase crawl/walk/run roadmap.
 
 ---
 
+## 2026-04-20 — 🎉 v1.0.0 shipped
+
+### TLDR
+- 🚀 **200 tests green**, Mojo 26.2 + Python 3.12.13 + textual 8.2.4 pinned
+- ⚡ **MLX Metal backend**: 68.6 tok/s on Qwen3.5-4B-4bit, 192.7 tok/s on Qwen3-0.6B-4bit (M2 Max) — NFR met
+- 🛠️ **Interactive REPL wired**: `mojopi` with no args drops into a full agent loop; `-p` also uses the ReAct loop (tools work)
+- 📝 **Docs**: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [INTERACTIVE.md](docs/INTERACTIVE.md), [BENCHMARKS.md](docs/BENCHMARKS.md), [V1_RELEASE.md](docs/V1_RELEASE.md), [EXTENSIONS.md](docs/EXTENSIONS.md), [INSTALL.md](docs/INSTALL.md)
+- 🏷️ **v1.0.0 tagged** — pinned pixi.toml, published release notes
+- 📦 **8-backend fallback**: MLX Metal → MAX embedded → MAX subprocess; transparent to loop
+- 🔌 **Extension API**: `register_tool`, `register_command`, `on(event)` with 6-event bus; auto-discovery from `~/.pi/agent/extensions/` + `.pi/extensions/`
+
+### Gates met
+- **R1 — TUI + extensions + print polish:** ✅
+- **R2 — benchmarks + MAX pipeline fix + structured output + GIL profiling:** ✅
+- **R3 — JSON/RPC modes + parallel tool dispatch + packaging + v1.0:** ✅
+- **v1.0 cut:** main.mojo wires full agent loop; pixi.toml pinned; tag pushed ✅
+
+### Commit trail
+`8bd0f68` (MLX backend) · [`bd99680`](https://github.com/atveit/mojopi/commit/bd99680) (R3) · [`449740a`](https://github.com/atveit/mojopi/commit/449740a) (R2) · [`04d7d6d`](https://github.com/atveit/mojopi/commit/04d7d6d) (R1) · [`5af58fe`](https://github.com/atveit/mojopi/commit/5af58fe) (W3) · [`9897455`](https://github.com/atveit/mojopi/commit/9897455) (W1+W2)
+
+### Next up
+v1.1: session resume in REPL, TUI auto-launch when stdout is a tty, Linux+CUDA CI validation, MLX speculative decoding. See [V1_RELEASE.md](docs/V1_RELEASE.md).
+
+---
+
 ## 2026-04-19 — 🏁 Walk tier closed (W1 + W2 + W3)
 
 ### TLDR

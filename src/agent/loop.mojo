@@ -182,7 +182,7 @@ def run_loop(
             # W3: Check abort before each tool call.
             if is_aborted():
                 return String("[aborted during tool execution]")
-            var tc = tool_calls[i]
+            var tc = tool_calls[i].copy()
             var result = dispatch_tool(tc.name, tc.arguments_json)
             history.append(HistoryEntry(
                 String("tool_result"),
